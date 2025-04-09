@@ -28,7 +28,7 @@ type Config struct {
 	Rpc RpcConfig `toml:"rpc"` // RPC configuration
 }
 
-func createSampleConfig() error {
+func CreateSampleConfig() error {
 	sampleConfig := new(Config)
 
 	sampleConfig.Rpc.Url = DefaultRpcUrl
@@ -59,4 +59,15 @@ func createSampleConfig() error {
 	}
 
 	return nil
+}
+
+func GetConfig(path string) (*Config, error) {
+	config := new(Config)
+
+	// Read the configuration file
+	if _, err := toml.DecodeFile(path, config); err != nil {
+		return nil, fmt.Errorf("failed to decode config file: %w", err)
+	}
+
+	return config, nil
 }
