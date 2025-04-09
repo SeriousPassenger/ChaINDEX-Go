@@ -1,0 +1,5 @@
+[rpc]
+  url = "http://localhost:8080"
+  delay = 1000
+  timeout = 5
+  retry = 3
