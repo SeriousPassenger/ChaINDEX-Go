@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/spf13/cobra"
 )
@@ -57,9 +58,58 @@ func main() {
 	// Define the --config (or -c) flag
 	testConnectionCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
 
+	TestGetBlocksBatchCmd := &cobra.Command{
+		Use:   "test-get-blocks-batch",
+		Short: "Test the get blocks batch functionality",
+		Run: func(cmd *cobra.Command, args []string) {
+			if configFile == "" {
+				cmd.Println("Error: config file path is required (use --config).")
+				return
+			}
+
+			// Now load and test the connection
+			config, err := GetConfig(configFile)
+			if err != nil {
+				cmd.Println("Error loading config:", err)
+				return
+			}
+
+			client, err := GetClient(config)
+
+			if err != nil {
+				cmd.Println("Error getting client:", err)
+				return
+			}
+
+			// Example block numbers to fetch
+			blockNumbers := []*big.Int{
+				big.NewInt(1),
+			}
+
+			blocks, err := GetBlocksBatch(client, blockNumbers)
+
+			if err != nil {
+				cmd.Println("Error fetching blocks:", err)
+				return
+			}
+
+			err = SaveStructToJSONFile(blocks, "blocks_debug.json")
+
+			if err != nil {
+				cmd.Println("Error saving blocks to file:", err)
+				return
+			}
+
+			fmt.Println("Blocks fetched and saved successfully.")
+		},
+	}
+
+	TestGetBlocksBatchCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
+
 	// Add subcommands to root
 	rootCmd.AddCommand(createConfigCmd)
 	rootCmd.AddCommand(testConnectionCmd)
+	rootCmd.AddCommand(TestGetBlocksBatchCmd)
 
 	// Execute root command
 	if err := rootCmd.Execute(); err != nil {

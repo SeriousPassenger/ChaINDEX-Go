@@ -8,10 +8,11 @@ import (
 )
 
 type RpcConfig struct {
-	Url     string `toml:"url"`     // URL for the RPC server
-	Delay   int    `toml:"delay"`   // Delay between requests in milliseconds
-	Timeout int    `toml:"timeout"` // Timeout for requests in seconds
-	Retry   int    `toml:"retry"`   // Number of retries for failed request
+	Url       string `toml:"url"`        // URL for the RPC server
+	Delay     int    `toml:"delay"`      // Delay between requests in milliseconds
+	Timeout   int    `toml:"timeout"`    // Timeout for requests in seconds
+	Retry     int    `toml:"retry"`      // Number of retries for failed request
+	BatchSize int    `toml:"batch_size"` // Batch size for requests
 }
 
 const (
@@ -22,6 +23,7 @@ const (
 	DefaultRpcDelay   = 1000                    // Default delay between requests in milliseconds
 	DefaultRpcTimeout = 5                       // Default timeout for requests in seconds
 	DefaultRpcRetry   = 3                       // Default number of retries for failed requests
+	DefaultBatchSize  = 1                       // Default batch size for requests
 )
 
 type Config struct {
@@ -35,6 +37,7 @@ func CreateSampleConfig() error {
 	sampleConfig.Rpc.Delay = DefaultRpcDelay
 	sampleConfig.Rpc.Timeout = DefaultRpcTimeout
 	sampleConfig.Rpc.Retry = DefaultRpcRetry
+	sampleConfig.Rpc.BatchSize = DefaultBatchSize
 
 	// Marshal the sample configuration to TOML format
 	configData, err := toml.Marshal(sampleConfig)

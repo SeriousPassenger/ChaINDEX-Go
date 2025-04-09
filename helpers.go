@@ -1,10 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
-
-	"github.com/ethereum/go-ethereum/rpc"
+	"os"
 )
 
 func HexToBigInt(hexString string) (*big.Int, error) {
@@ -19,22 +19,29 @@ func HexToBigInt(hexString string) (*big.Int, error) {
 	return value, nil
 }
 
-func GetLastBlockNumber(client *rpc.Client) (string, error) {
-	var blockNumber string
-	err := client.Call(&blockNumber, "eth_blockNumber")
+func BigIntToHex(value *big.Int) string {
+	hexString := fmt.Sprintf("0x%x", value)
+
+	return hexString
+}
+
+func SaveStructToJSONFile(data interface{}, filename string) error {
+	// Save rawData to a file indent 4
+	file, err := os.Create(filename)
 
 	if err != nil {
-		return "", fmt.Errorf("failed to get last block number: %w", err)
+		return fmt.Errorf("failed to create file: %w", err)
 	}
 
-	blockNumberInt, err := HexToBigInt(blockNumber)
+	defer file.Close()
 
-	if err != nil {
-		return "", fmt.Errorf("failed to convert block number to int: %w", err)
+	encoder := json.NewEncoder(file)
+
+	encoder.SetIndent("", "    ")
+
+	if err := encoder.Encode(data); err != nil {
+		return fmt.Errorf("failed to encode JSON to file: %w", err)
 	}
 
-	// Convert the block number to a string
-	blockNumber = blockNumberInt.String()
-
-	return blockNumber, nil
+	return nil
 }

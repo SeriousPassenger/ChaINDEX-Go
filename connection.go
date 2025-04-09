@@ -20,7 +20,6 @@ func TestConnection(config *Config) error {
 	if err != nil {
 		return err
 	}
-	defer client.Close()
 
 	blockNumber, err := GetLastBlockNumber(client)
 	if err != nil {
