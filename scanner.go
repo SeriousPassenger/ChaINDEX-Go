@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"math/big"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/schollz/progressbar/v3"
 )
@@ -324,6 +326,10 @@ func ScanAllAccounts(config *Config) error {
 	maxAccounts := config.Scan.AccountScanConfig.MaxAccounts
 	outputFileName := config.Scan.AccountScanConfig.OutputFileName
 
+	if maxAccounts == 0 {
+		maxAccounts = math.MaxUint64
+	}
+
 	log.Printf("Batch size: %d\n", batchSize)
 	log.Printf("Max accounts: %d\n", maxAccounts)
 	log.Printf("Start key: %s\n", scanKey)
@@ -341,17 +347,10 @@ func ScanAllAccounts(config *Config) error {
 
 	for {
 
-		if len(accounts) >= int(maxAccounts) {
+		if uint64(len(accounts)) >= maxAccounts {
+			log.Printf("Reached the maximum number of accounts to scan: %d\n", maxAccounts)
 			break
 		}
-
-		scanKeyInt, err := Base64ToInt(scanKey)
-
-		if err != nil {
-			return fmt.Errorf("failed to convert scan key: %w", err)
-		}
-
-		log.Printf("Fetching %d accounts with start key: %s (%d)\n", batchSize, scanKey, scanKeyInt)
 
 		var raw json.RawMessage
 
@@ -407,7 +406,10 @@ func ScanAllAccounts(config *Config) error {
 			accounts[address] = account
 		}
 
-		log.Printf("Total: %d accounts (%d contracts, %d non-contracts)\n", len(result.Accounts), numContracts, numNonContracts)
+		if len(accounts)%100000 == 0 {
+			log.Printf("Total: %d accounts (%d contracts, %d non-contracts), Size in MB: %d\n", len(accounts), numContracts, numNonContracts, len(accounts)*int(unsafe.Sizeof(RpcAccount{}))/1024/1024)
+		}
+
 	}
 
 	if len(accounts) == 0 {
