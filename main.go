@@ -7,4 +7,5 @@ func main() {
 
 	rootCmd := GetCobraRootCmd()
 	rootCmd.Execute()
+
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -96,4 +97,32 @@ func JSONToStruct(path string, data interface{}) error {
 	}
 
 	return nil
+}
+
+func IntToBase64(num int) string {
+	// Convert the integer to a byte array
+	bytes := make([]byte, 4)
+	for i := 0; i < 4; i++ {
+		bytes[3-i] = byte(num & 0xFF)
+		num >>= 8
+	}
+
+	// Encode the byte array to a base64 string
+	return base64.StdEncoding.EncodeToString(bytes)
+}
+
+func Base64ToInt(encodedStr string) (int, error) {
+	// Decode the base64 string to a byte array
+	decodedBytes, err := base64.StdEncoding.DecodeString(encodedStr)
+	if err != nil {
+		return 0, fmt.Errorf("error decoding base64 string: %w", err)
+	}
+
+	// Convert the byte array back to an integer
+	num := 0
+	for i := 0; i < len(decodedBytes); i++ {
+		num = num<<8 + int(decodedBytes[i])
+	}
+
+	return num, nil
 }

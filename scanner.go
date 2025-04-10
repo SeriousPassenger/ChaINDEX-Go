@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/big"
@@ -32,7 +33,7 @@ func ScanBlocksWithConfig(config *Config) error {
 	startBlock := config.Scan.FromBlock
 	endBlock := config.Scan.ToBlock
 
-	batchSize := config.Rpc.BatchSize
+	batchSize := config.Scan.BlockScanConfig.BatchSize
 	totalBlocks := endBlock - startBlock + 1
 
 	batchCount := totalBlocks / batchSize
@@ -211,7 +212,7 @@ func ScanReceiptsWithConfig(config *Config, blockFile string) error {
 
 	log.Printf("Connected to RPC server: %s\n", config.Rpc.Url)
 
-	batchSize := config.Rpc.BatchSize
+	batchSize := config.Scan.ReceiptScanConfig.BatchSize
 	totalTransactions := uint64(len(transactions))
 	batchCount := totalTransactions / batchSize
 
@@ -280,5 +281,150 @@ func ScanReceiptsWithConfig(config *Config, blockFile string) error {
 	log.Printf("Receipts fetched and saved to %s.\n", filePath)
 	bar.Finish()
 
+	return nil
+}
+
+/*
+{"jsonrpc":"2.0","id":1,"result":{"root":"0xf2c2b49d3bcbebb3d26d98fa9d96ac2b62f9ba2b6a3a741eeebe543e27ca89cc","accounts":{"0x0000000000000000000000000000000000efface":{"balance":"1200000000000000","nonce":0,"root":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","codeHash":"0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"},"0x0000000000000000000000000000000001664799":{"balance":"400000000000000","nonce":0,"root":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","codeHash":"0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"},"0x0000000000000000000000000000000005f5e100":{"balance":"100000000000","nonce":0,"root":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","codeHash":"0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"},"0x00000000000000000000000000000000069f6bc7":{"balance":"8000000000000000","nonce":0,"root":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","codeHash":"0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"},"0x000000000000000000000000000000000deada02":{"balance":"5000000000000000","nonce":0,"root":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","codeHash":"0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"},"0x0000000000000000000000000000000027bc86aa":{"balance":"9000000000000000","nonce":0,"root":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","codeHash":"0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"},"0x000000000000000000000000000000004377dead":{"balance":"200000000000000","nonce":0,"root":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","codeHash":"0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"},"0x000000000000000000000000000000005349dead":{"balance":"10000000000000","nonce":0,"root":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","codeHash":"0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"},"0x0000000000000000000000000000000062d48537":{"balance":"4970580747186068","nonce":0,"root":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","codeHash":"0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"},"0x0000000000000000000000000000000062d4b7e8":{"balance":"9138424108689073","nonce":0,"root":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","codeHash":"0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"}},"next":"AAAAAAAAAAAAAAAAAAAAAGNyabg="}}
+*/
+
+type RpcAccount struct {
+	Balance    string `json:"balance"`
+	Nonce      uint64 `json:"nonce"`
+	Root       string `json:"root"`
+	CodeHash   string `json:"codeHash"`
+	IsContract bool   `json:"isContract"`
+}
+
+type RpcAccountPageResult struct {
+	Root     string                `json:"root"`
+	Accounts map[string]RpcAccount `json:"accounts"`
+	Next     string                `json:"next"`
+}
+
+func ScanAllAccounts(config *Config) error {
+	if err := validateConfig(config); err != nil {
+		return fmt.Errorf("invalid configuration: %w", err)
+	}
+
+	log.Printf("Starting the account scanner...\n")
+
+	client, err := GetRpcClient(config.Rpc.Url)
+
+	if err != nil {
+		return fmt.Errorf("failed to create RPC client: %w", err)
+	}
+
+	log.Printf("Connected to RPC server: %s\n", config.Rpc.Url)
+
+	batchSize := config.Scan.AccountScanConfig.BatchSize
+
+	scanKey := config.Scan.AccountScanConfig.StartKey
+	blockNumber := config.Scan.AccountScanConfig.BlockNumber
+	maxAccounts := config.Scan.AccountScanConfig.MaxAccounts
+	outputFileName := config.Scan.AccountScanConfig.OutputFileName
+
+	log.Printf("Batch size: %d\n", batchSize)
+	log.Printf("Max accounts: %d\n", maxAccounts)
+	log.Printf("Start key: %s\n", scanKey)
+	log.Printf("Block number: %d\n", blockNumber)
+	log.Printf("Output file name: %s\n", outputFileName)
+	log.Printf("Delay between requests: %d ms\n", config.Rpc.Delay)
+	log.Printf("Starting the account scan...\n")
+
+	accounts := make(map[string]RpcAccount)
+
+	nonContractCodeHash := "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+
+	numContracts := 0
+	numNonContracts := 0
+
+	for {
+
+		if len(accounts) >= int(maxAccounts) {
+			break
+		}
+
+		scanKeyInt, err := Base64ToInt(scanKey)
+
+		if err != nil {
+			return fmt.Errorf("failed to convert scan key: %w", err)
+		}
+
+		log.Printf("Fetching %d accounts with start key: %s (%d)\n", batchSize, scanKey, scanKeyInt)
+
+		var raw json.RawMessage
+
+		err = client.Call(&raw, "debug_accountRange", blockNumber, scanKey, batchSize, true, true)
+
+		if err != nil {
+			return fmt.Errorf("failed to fetch accounts: %w", err)
+		}
+
+		// Add a delay between requests
+		time.Sleep(time.Duration(config.Rpc.Delay) * time.Millisecond)
+
+		if len(raw) == 0 {
+			log.Printf("No more accounts to scan.\n")
+			break
+		}
+
+		var result RpcAccountPageResult
+
+		if err := json.Unmarshal(raw, &result); err != nil {
+			return fmt.Errorf("failed to unmarshal JSON: %w", err)
+		}
+
+		if result.Root == "" {
+			log.Printf("No more accounts to scan.\n")
+			break
+		}
+
+		newKey := result.Next
+
+		newKeyInt, err := Base64ToInt(newKey)
+
+		if err != nil {
+			return fmt.Errorf("failed to convert new key: %w", err)
+		}
+
+		if newKeyInt == 0 {
+			log.Printf("No more accounts to scan.\n")
+			break
+		}
+
+		scanKey = newKey
+
+		for address, account := range result.Accounts {
+			if account.CodeHash == nonContractCodeHash {
+				numNonContracts++
+				account.IsContract = false
+			} else {
+				numContracts++
+				account.IsContract = true
+			}
+
+			accounts[address] = account
+		}
+
+		log.Printf("Total: %d accounts (%d contracts, %d non-contracts)\n", len(result.Accounts), numContracts, numNonContracts)
+	}
+
+	if len(accounts) == 0 {
+		return fmt.Errorf("no accounts fetched")
+	}
+
+	filePath := fmt.Sprintf("%s/%s", config.Scan.OutputDir, outputFileName)
+
+	if err := SaveStructToJSONFile(accounts, filePath); err != nil {
+		return fmt.Errorf("failed to save accounts to file: %w", err)
+	}
+
+	log.Printf("\nTask completed successfully!\n")
+	log.Printf("Accounts fetched and saved to %s.\n", filePath)
+	log.Printf("Total accounts: %d\n", len(accounts))
+	log.Printf("Total contracts: %d\n", numContracts)
+	log.Printf("Total non-contracts: %d\n", numNonContracts)
+	log.Printf("Last scan key: %s\n", scanKey)
 	return nil
 }

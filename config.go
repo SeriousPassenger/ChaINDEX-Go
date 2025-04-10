@@ -18,27 +18,50 @@ const (
 	// Default values for the scanning configuration
 	DefaultFromBlock = 1
 	DefaultToBlock   = 100
-	ScanBalances     = true
-	ScanReceipts     = true
-	ScanContractCode = true
+
+	DefaultAccountScanBlockNumber = 48_000_000 // Default block number for account scanning
+
 	DefaultOutputDir = "output"
 )
 
 var DefaultFilterAddresses = []string{}
 
 type RpcConfig struct {
-	Url       string `toml:"url"`        // URL for the RPC server
-	Delay     uint64 `toml:"delay"`      // Delay between requests in milliseconds
-	BatchSize uint64 `toml:"batch_size"` // Batch size for requests
+	Url   string `toml:"url"`   // URL for the RPC server
+	Delay uint64 `toml:"delay"` // Delay between requests in milliseconds
+}
+
+type BlockScanConfig struct {
+	FromBlock      uint64 `toml:"from_block"`       // Starting block for scanning
+	ToBlock        uint64 `toml:"to_block"`         // Ending block for scanning
+	OutputFileName string `toml:"output_file_name"` // File name for saving the scanned blocks
+	BatchSize      uint64 `toml:"batch_size"`       // Batch size for requests
+
+}
+
+type AccountScanConfig struct {
+	BlockNumber    uint64 `toml:"block_number"`     // The state block number to scan
+	MaxAccounts    uint64 `toml:"max_accounts"`     // Maximum number of accounts to scan
+	StartKey       string `toml:"start_key"`        // Starting key for scanning (used for pagination)
+	OutputFileName string `toml:"output_file_name"` // File name for saving the scanned accounts
+	BatchSize      uint64 `toml:"batch_size"`       // Batch size for requests
+}
+
+type ReceiptScanConfig struct {
+	// TODO: For now, this only accepts the exported BlockScan data,
+	// but it should be able to accept any array of transaction hashes
+	FullBlocksFile string `toml:"full_blocks_file"` // File containing full blocks for scanning
+	// TODO: TransactionHashesFile string `toml:"transaction_hashes_file"` // List of transaction hashes to scan
+	OutputFileName string `toml:"output_file_name"` // File name for saving the scanned receipts
+	BatchSize      uint64 `toml:"batch_size"`       // Batch size for requests
+
 }
 
 type ScanConfig struct {
-	FromBlock    uint64 `toml:"from_block"`         // Starting block for scanning
-	ToBlock      uint64 `toml:"to_block"`           // Ending block for scanning
-	Balances     bool   `toml:"scan_balances"`      // Flag to indicate if balances should be scanned
-	Receipts     bool   `toml:"scan_receipts"`      // Flag to indicate if receipts should be scanned
-	ContractCode bool   `toml:"scan_contract_code"` // Flag to indicate if contract code should be scanned
-	OutputDir    string `toml:"output_dir"`         // Directory to save the output files
+	BlockScanConfig   `toml:"block_scan"`   // Configuration for block scanning
+	AccountScanConfig `toml:"account_scan"` // Configuration for account scanning
+	ReceiptScanConfig `toml:"receipt_scan"` // Configuration for receipt scanning
+	OutputDir         string                `toml:"output_dir"` // Directory to save the output files
 }
 
 type FilterConfig struct {
@@ -56,13 +79,22 @@ func CreateSampleConfig() error {
 
 	sampleConfig.Rpc.Url = DefaultRpcUrl
 	sampleConfig.Rpc.Delay = DefaultRpcDelay
-	sampleConfig.Rpc.BatchSize = DefaultBatchSize
 
-	sampleConfig.Scan.FromBlock = DefaultFromBlock
-	sampleConfig.Scan.ToBlock = DefaultToBlock
-	sampleConfig.Scan.Balances = ScanBalances
-	sampleConfig.Scan.Receipts = ScanReceipts
-	sampleConfig.Scan.ContractCode = ScanContractCode
+	sampleConfig.Scan.BlockScanConfig.FromBlock = DefaultFromBlock
+	sampleConfig.Scan.BlockScanConfig.ToBlock = DefaultToBlock
+	sampleConfig.Scan.BlockScanConfig.OutputFileName = "full_blocks.json"
+	sampleConfig.Scan.BlockScanConfig.BatchSize = DefaultBatchSize
+
+	sampleConfig.Scan.AccountScanConfig.BlockNumber = DefaultAccountScanBlockNumber
+	sampleConfig.Scan.AccountScanConfig.MaxAccounts = 100
+	sampleConfig.Scan.AccountScanConfig.StartKey = "AAAAAA==" // Base64 encoded string 0x0
+	sampleConfig.Scan.AccountScanConfig.OutputFileName = "accounts.json"
+	sampleConfig.Scan.AccountScanConfig.BatchSize = DefaultBatchSize
+
+	sampleConfig.Scan.ReceiptScanConfig.FullBlocksFile = "full_blocks.json"
+	sampleConfig.Scan.ReceiptScanConfig.OutputFileName = "receipts.json"
+	sampleConfig.Scan.ReceiptScanConfig.BatchSize = DefaultBatchSize
+
 	sampleConfig.Scan.OutputDir = DefaultOutputDir
 
 	sampleConfig.Filter.Addresses = DefaultFilterAddresses

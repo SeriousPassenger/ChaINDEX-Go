@@ -110,6 +110,30 @@ func GetCobraRootCmd() *cobra.Command {
 		},
 	}
 
+	scanAccountsCmd := &cobra.Command{
+		Use:   "scan-accounts",
+		Short: "Scan accounts",
+		Run: func(cmd *cobra.Command, args []string) {
+			if configFile == "" {
+				cmd.Println("Error: config file path is required (use --config).")
+				return
+			}
+
+			config, err := GetConfig(configFile)
+			if err != nil {
+				cmd.Println("Error loading config:", err)
+				return
+			}
+
+			if err := ScanAllAccounts(config); err != nil {
+				cmd.Println("Error scanning accounts:", err)
+				return
+			}
+
+			cmd.Println("Accounts scanned successfully.")
+		},
+	}
+
 	// ----------------------------------------
 	// Flags for all commands
 	// ----------------------------------------
@@ -117,6 +141,7 @@ func GetCobraRootCmd() *cobra.Command {
 	scanBlocksCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
 	scanReceiptsCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
 	scanReceiptsCmd.Flags().StringVarP(&blockFile, "block-file", "b", "", "Path to the block file")
+	scanAccountsCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
 
 	// ----------------------------------------
 	// Add commands to root command
@@ -125,6 +150,7 @@ func GetCobraRootCmd() *cobra.Command {
 	rootCmd.AddCommand(testConnectionCmd)
 	rootCmd.AddCommand(scanBlocksCmd)
 	rootCmd.AddCommand(scanReceiptsCmd)
+	rootCmd.AddCommand(scanAccountsCmd)
 
 	return rootCmd
 }
