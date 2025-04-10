@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -111,14 +112,14 @@ func GetReceiptsBatch(client *rpc.Client, transactions []string) ([]RpcReceipt, 
 }
 
 // GetContractCodeBatch retrieves the contract code for a batch of addresses from the Ethereum client.
-func GetContractCodeBatch(client *rpc.Client, addresses []string) ([]RpcContractCode, error) {
+func GetContractCodeBatch(client *rpc.Client, addresses []string) ([]ContractCode, error) {
 	var batch []rpc.BatchElem
 
 	for _, address := range addresses {
 		var raw json.RawMessage
 		batch = append(batch, rpc.BatchElem{
 			Method: "eth_getCode",
-			Args:   []interface{}{address, "latest"},
+			Args:   []any{address, "latest"},
 			Result: &raw,
 		})
 	}
@@ -129,9 +130,9 @@ func GetContractCodeBatch(client *rpc.Client, addresses []string) ([]RpcContract
 		return nil, fmt.Errorf("failed to execute batch call: %w", err)
 	}
 
-	responses := make([]RpcContractCode, 0)
+	responses := make([]ContractCode, 0)
 
-	for _, elem := range batch {
+	for i, elem := range batch {
 		if elem.Error != nil {
 			log.Printf("error in batch element: %v", elem.Error)
 			continue
@@ -142,11 +143,77 @@ func GetContractCodeBatch(client *rpc.Client, addresses []string) ([]RpcContract
 			continue
 		}
 
-		var response RpcContractCode
-		if err := json.Unmarshal(*raw, &response); err != nil {
+		var codeResponse string
+		if err := json.Unmarshal(*raw, &codeResponse); err != nil {
 			log.Printf("failed to unmarshal JSON: %v", err)
 			continue
 		}
+
+		var response ContractCode
+
+		response.Address = addresses[i]
+		response.Code = codeResponse
+
+		responses = append(responses, response)
+	}
+
+	return responses, nil
+}
+
+// GetBalanceBatch retrieves the balance for a batch of addresses from the Ethereum client.
+func GetBalanceBatch(client *rpc.Client, addresses []string) ([]BalanceSheet, error) {
+	var batch []rpc.BatchElem
+
+	for _, address := range addresses {
+		var raw json.RawMessage
+		batch = append(batch, rpc.BatchElem{
+			Method: "eth_getBalance",
+			Args:   []any{address, "latest"},
+			Result: &raw,
+		})
+	}
+
+	err := client.BatchCall(batch)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute batch call: %w", err)
+	}
+
+	responses := make([]BalanceSheet, 0)
+
+	for i, elem := range batch {
+		if elem.Error != nil {
+			log.Printf("error in batch element: %v", elem.Error)
+			continue
+		}
+
+		raw, ok := elem.Result.(*json.RawMessage)
+		if !ok || raw == nil {
+			continue
+		}
+
+		var balanceResponse string
+		if err := json.Unmarshal(*raw, &balanceResponse); err != nil {
+			log.Printf("failed to unmarshal JSON: %v", err)
+			continue
+		}
+
+		var response BalanceSheet
+
+		response.Address = addresses[i]
+
+		balanceInt, err := HexToBigInt(balanceResponse)
+
+		if err != nil {
+			log.Printf("failed to convert hex string to big.Int: %v", err)
+			continue
+		}
+
+		response.Balance = balanceInt
+
+		timeNowUnix := time.Now().Unix()
+
+		response.UpdatedAt = timeNowUnix
 
 		responses = append(responses, response)
 	}

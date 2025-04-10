@@ -77,11 +77,6 @@ type RpcReceipt struct {
 	Type              string   `json:"type"`
 }
 
-type RpcContractCode struct {
-	Address string `json:"address"`
-	Code    string `json:"code"`
-}
-
 /* ========================================================================== */
 /* ====================== Converted Data Structures ======================= */
 /* ========================================================================== */
@@ -164,4 +159,15 @@ type FullTransaction struct {
 type FullBlock struct {
 	BaseBlock        BaseBlock         `json:"baseBlock"`
 	FullTransactions []FullTransaction `json:"fullTransactions"`
+}
+
+type ContractCode struct {
+	Address string `json:"address"`
+	Code    string `json:"code"`
+}
+
+type BalanceSheet struct {
+	Address   string   `json:"address"`
+	Balance   *big.Int `json:"balance"`
+	UpdatedAt int64    `json:"updatedAt"`
 }

@@ -1,6 +1,12 @@
 [rpc]
   url = "http://localhost:8080"
   delay = 1000
-  timeout = 5
-  retry = 3
   batch_size = 1
+
+[scan]
+  from_block = "1"
+  to_block = "100"
+  scan_balances = true
+  scan_receipts = true
+  scan_contract_code = true
+  output_dir = "output"
