@@ -51,6 +51,18 @@ type RpcTransaction struct {
 	S                string `json:"s"`
 }
 
+type RpcLog struct {
+	Address          string   `json:"address"`
+	Topics           []string `json:"topics"`
+	Data             string   `json:"data"`
+	BlockNumber      string   `json:"blockNumber"`
+	TransactionHash  string   `json:"transactionHash"`
+	TransactionIndex string   `json:"transactionIndex"`
+	BlockHash        string   `json:"blockHash"`
+	LogIndex         string   `json:"logIndex"`
+	Removed          bool     `json:"removed"`
+}
+
 func GetLastBlockNumber(client *rpc.Client) (string, error) {
 	var blockNumber string
 	err := client.Call(&blockNumber, "eth_blockNumber")
@@ -75,7 +87,7 @@ func GetBlocksBatch(client *rpc.Client, blocks []*big.Int) ([]RpcBlock, error) {
 	var batch []rpc.BatchElem
 
 	for _, block := range blocks {
-		blockHex := fmt.Sprintf("0x%x", block)
+		blockHex := BigIntToHex(block)
 		var raw json.RawMessage
 		batch = append(batch, rpc.BatchElem{
 			Method: "eth_getBlockByNumber",
@@ -110,6 +122,58 @@ func GetBlocksBatch(client *rpc.Client, blocks []*big.Int) ([]RpcBlock, error) {
 		}
 
 		responses = append(responses, response)
+	}
+
+	return responses, nil
+}
+
+func GetLogsBatch(client *rpc.Client, blocks []*big.Int) ([]RpcLog, error) {
+	var batch []rpc.BatchElem
+
+	for _, block := range blocks {
+		blockHex := BigIntToHex(block)
+
+		filterQuery := map[string]interface{}{
+			"fromBlock": blockHex,
+			"toBlock":   blockHex,
+		}
+
+		log.Printf("Fetching logs for block %s", blockHex)
+
+		var raw json.RawMessage
+		batch = append(batch, rpc.BatchElem{
+			Method: "eth_getLogs",
+			Result: &raw,
+			Args:   []any{filterQuery},
+		})
+	}
+
+	err := client.BatchCall(batch)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute batch call: %w", err)
+	}
+
+	responses := make([]RpcLog, 0)
+
+	for _, elem := range batch {
+		if elem.Error != nil {
+			log.Printf("error in batch element: %v", elem.Error)
+			continue
+		}
+
+		raw, ok := elem.Result.(*json.RawMessage)
+		if !ok || raw == nil {
+			continue
+		}
+
+		var response []RpcLog
+		if err := json.Unmarshal(*raw, &response); err != nil {
+			log.Printf("failed to unmarshal JSON: %v", err)
+			continue
+		}
+
+		responses = append(responses, response...)
 	}
 
 	return responses, nil
