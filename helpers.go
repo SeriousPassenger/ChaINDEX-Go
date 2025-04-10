@@ -5,18 +5,38 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"strings"
 )
 
 func HexToBigInt(hexString string) (*big.Int, error) {
-	if len(hexString) < 3 || hexString[:2] != "0x" {
-		return nil, fmt.Errorf("invalid hex string: %s", hexString)
+	hexString = strings.ToLower(hexString)
+
+	if !strings.HasPrefix(hexString, "0x") {
+		return nil, fmt.Errorf("invalid hex prefix: %s", hexString)
 	}
 
-	// Convert the hex string to a big.Int
+	sub := hexString[2:]
 	value := new(big.Int)
-	value.SetString(hexString[2:], 16)
+
+	if _, ok := value.SetString(sub, 16); !ok {
+		return nil, fmt.Errorf("invalid hex digits: %s", hexString)
+	}
 
 	return value, nil
+}
+
+func HexToBigIntMultiple(hexStrings []string) ([]*big.Int, error) {
+	values := make([]*big.Int, len(hexStrings))
+
+	for i, hexString := range hexStrings {
+		value, err := HexToBigInt(hexString)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert hex string %q: %w", hexString, err)
+		}
+		values[i] = value
+	}
+
+	return values, nil
 }
 
 func BigIntToHex(value *big.Int) string {
