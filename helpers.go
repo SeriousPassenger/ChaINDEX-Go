@@ -79,3 +79,21 @@ func SaveStructToJSONFile(data interface{}, path string) error {
 
 	return nil
 }
+
+func JSONToStruct(path string, data interface{}) error {
+	file, err := os.Open(path)
+
+	if err != nil {
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+
+	if err := decoder.Decode(data); err != nil {
+		return fmt.Errorf("failed to decode JSON from file: %w", err)
+	}
+
+	return nil
+}

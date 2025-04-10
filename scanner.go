@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/schollz/progressbar/v3"
@@ -80,32 +81,65 @@ func ScanBlocksWithConfig(config *Config) error {
 		progressbar.OptionSetWidth(20),
 	)
 
-	blocks := make([]any, 0)
+	blocks := make([]RpcBlockFull, 0)
 
 	log.Printf("Fetching blocks from %d to %d in batches of %d\n", startBlock, endBlock, batchSize)
+
+	txCount := 0
+	failedBlockCount := 0
+	successfulBlockCount := 0
 
 	for _, batch := range batches {
 		if len(batch) == 0 {
 			continue
 		}
 
-		bar.Describe(fmt.Sprintf("Fetching blocks %d to %d", batch[0].Uint64(), batch[len(batch)-1].Uint64()))
+		bar.Describe(fmt.Sprintf("Txs: %d, Success (Block): %d Fail (Block): %d", txCount, successfulBlockCount, failedBlockCount))
 
-		batchBlocks, err := GetBlocksBatch(client, batch, config.Scan.FullBlocks)
+		batchBlocks, err := GetBlocksBatch(client, batch)
 
 		// Add a delay between requests
 		time.Sleep(time.Duration(config.Rpc.Delay) * time.Millisecond)
 
 		if err != nil {
 			bar.Add(1)
+			failedBlockCount += len(batch)
 			return fmt.Errorf("failed to fetch blocks: %w", err)
 		}
 
 		for _, block := range batchBlocks {
-			if block == nil {
-				continue
+			transactions := block.Transactions
+
+			if len(config.Filter.Addresses) > 0 {
+				filteredTransactions := make([]RpcTransactionFull, 0)
+
+				for _, tx := range transactions {
+					fromLower := strings.ToLower(tx.From)
+					toLower := strings.ToLower(tx.To)
+
+					for _, address := range config.Filter.Addresses {
+						addressLower := strings.ToLower(address)
+
+						if address == "ContractCreation" && tx.To == "" {
+							filteredTransactions = append(filteredTransactions, tx)
+							break
+						}
+
+						if fromLower == addressLower || toLower == addressLower {
+							filteredTransactions = append(filteredTransactions, tx)
+							break
+						}
+
+					}
+
+				}
+				block.Transactions = filteredTransactions
+
 			}
 
+			txCount += len(block.Transactions)
+
+			successfulBlockCount++
 			blocks = append(blocks, block)
 		}
 
@@ -117,36 +151,16 @@ func ScanBlocksWithConfig(config *Config) error {
 		return fmt.Errorf("no blocks fetched")
 	}
 
-	outBlocks := make([]any, len(blocks))
+	outBlocks := make([]*BlockFull, len(blocks))
 
-	if config.Scan.FullBlocks {
-		for i, block := range blocks {
-			if block == nil {
-				continue
-			}
+	for i, block := range blocks {
+		blockData, err := RpcBlockFullToBlockFull(&block)
 
-			blockData, err := RpcBlockFullToBlockFull(block.(*RpcBlockFull))
-
-			if err != nil {
-				return fmt.Errorf("failed to convert block data: %w", err)
-			}
-
-			outBlocks[i] = blockData
+		if err != nil {
+			return fmt.Errorf("failed to convert block data: %w", err)
 		}
-	} else {
-		for i, block := range blocks {
-			if block == nil {
-				continue
-			}
 
-			blockData, err := RpcBlockMinimalToBlockMinimal(block.(*RpcBlockMinimal))
-
-			if err != nil {
-				return fmt.Errorf("failed to convert block data: %w", err)
-			}
-
-			outBlocks[i] = blockData
-		}
+		outBlocks[i] = blockData
 	}
 
 	filePath := fmt.Sprintf("%s/blocks_%d_to_%d.json", config.Scan.OutputDir, startBlock, endBlock)
@@ -162,7 +176,27 @@ func ScanBlocksWithConfig(config *Config) error {
 	return nil
 }
 
-func ScanReceiptsWithConfig(config *Config, transactions []string) error {
+func ScanReceiptsWithConfig(config *Config, blockFile string) error {
+	var blocks []*BlockFull
+
+	err := JSONToStruct(blockFile, &blocks)
+
+	if err != nil {
+		return fmt.Errorf("failed to load blocks from file: %w", err)
+	}
+
+	transactions := make([]string, 0)
+
+	for _, block := range blocks {
+		if block == nil {
+			continue
+		}
+
+		for _, tx := range block.Transactions {
+			transactions = append(transactions, tx.Hash)
+		}
+	}
+
 	if err := validateConfig(config); err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}

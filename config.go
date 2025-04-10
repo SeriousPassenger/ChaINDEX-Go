@@ -11,19 +11,20 @@ const (
 	SampleConfigPath = "config.toml.sample"
 
 	// Default values for the RPC configuration
-	DefaultRpcUrl    = "http://localhost:8080" // Default URL for the RPC server
-	DefaultRpcDelay  = 1000                    // Default delay between requests in milliseconds
-	DefaultBatchSize = 1                       // Default batch size for requests
+	DefaultRpcUrl    = "ws://localhost:8546" // Default URL for the RPC server
+	DefaultRpcDelay  = 1000                  // Default delay between requests in milliseconds
+	DefaultBatchSize = 1                     // Default batch size for requests
 
 	// Default values for the scanning configuration
-	DefaultFromBlock  = 1
-	DefaultToBlock    = 100
-	DefaultFullBlocks = true
-	ScanBalances      = true
-	ScanReceipts      = true
-	ScanContractCode  = true
-	DefaultOutputDir  = "output"
+	DefaultFromBlock = 1
+	DefaultToBlock   = 100
+	ScanBalances     = true
+	ScanReceipts     = true
+	ScanContractCode = true
+	DefaultOutputDir = "output"
 )
+
+var DefaultFilterAddresses = []string{}
 
 type RpcConfig struct {
 	Url       string `toml:"url"`        // URL for the RPC server
@@ -34,16 +35,20 @@ type RpcConfig struct {
 type ScanConfig struct {
 	FromBlock    uint64 `toml:"from_block"`         // Starting block for scanning
 	ToBlock      uint64 `toml:"to_block"`           // Ending block for scanning
-	FullBlocks   bool   `toml:"full_blocks"`        // Flag to indicate if full blocks should be scanned
 	Balances     bool   `toml:"scan_balances"`      // Flag to indicate if balances should be scanned
 	Receipts     bool   `toml:"scan_receipts"`      // Flag to indicate if receipts should be scanned
 	ContractCode bool   `toml:"scan_contract_code"` // Flag to indicate if contract code should be scanned
 	OutputDir    string `toml:"output_dir"`         // Directory to save the output files
 }
 
+type FilterConfig struct {
+	Addresses []string `toml:"addresses"` // List of addresses to filter
+}
+
 type Config struct {
-	Rpc  RpcConfig  `toml:"rpc"`  // RPC configuration
-	Scan ScanConfig `toml:"scan"` // Scanning configuration
+	Rpc    RpcConfig    `toml:"rpc"`    // RPC configuration
+	Scan   ScanConfig   `toml:"scan"`   // Scanning configuration
+	Filter FilterConfig `toml:"filter"` // Filter configuration
 }
 
 func CreateSampleConfig() error {
@@ -59,7 +64,8 @@ func CreateSampleConfig() error {
 	sampleConfig.Scan.Receipts = ScanReceipts
 	sampleConfig.Scan.ContractCode = ScanContractCode
 	sampleConfig.Scan.OutputDir = DefaultOutputDir
-	sampleConfig.Scan.FullBlocks = DefaultFullBlocks
+
+	sampleConfig.Filter.Addresses = DefaultFilterAddresses
 
 	// Marshal the sample configuration to TOML format
 	configData, err := toml.Marshal(sampleConfig)

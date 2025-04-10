@@ -58,16 +58,73 @@ func GetCobraRootCmd() *cobra.Command {
 		},
 	}
 
+	scanBlocksCmd := &cobra.Command{
+		Use:   "scan-blocks",
+		Short: "Scan blocks",
+		Run: func(cmd *cobra.Command, args []string) {
+			if configFile == "" {
+				cmd.Println("Error: config file path is required (use --config).")
+				return
+			}
+			config, err := GetConfig(configFile)
+			if err != nil {
+				cmd.Println("Error loading config:", err)
+				return
+			}
+			if err := ScanBlocksWithConfig(config); err != nil {
+				cmd.Println("Error scanning full blocks:", err)
+				return
+			}
+			cmd.Println("Blocks scanned successfully.")
+		},
+	}
+
+	// ------------------------------------------------------
+	// scan-receipts command
+	// ------------------------------------------------------
+	var blockFile string
+
+	scanReceiptsCmd := &cobra.Command{
+		Use:   "scan-receipts",
+		Short: "Scan receipts",
+		Run: func(cmd *cobra.Command, args []string) {
+			if configFile == "" {
+				cmd.Println("Error: config file path is required (use --config).")
+				return
+			}
+			if blockFile == "" {
+				cmd.Println("Error: block file path is required (use --block-file).")
+				return
+			}
+			config, err := GetConfig(configFile)
+			if err != nil {
+				cmd.Println("Error loading config:", err)
+				return
+			}
+
+			if err := ScanReceiptsWithConfig(config, blockFile); err != nil {
+				cmd.Println("Error scanning receipts:", err)
+				return
+			}
+			cmd.Println("Receipts scanned successfully.")
+		},
+	}
+
 	// ----------------------------------------
 	// Flags for all commands
 	// ----------------------------------------
 	testConnectionCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
+	scanBlocksCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
+	scanReceiptsCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
+	scanReceiptsCmd.Flags().StringVarP(&blockFile, "block-file", "b", "", "Path to the block file")
 
 	// ----------------------------------------
 	// Add commands to root command
 	// ----------------------------------------
 	rootCmd.AddCommand(createConfigCmd)
 	rootCmd.AddCommand(testConnectionCmd)
+	rootCmd.AddCommand(scanBlocksCmd)
+	rootCmd.AddCommand(scanReceiptsCmd)
 
 	return rootCmd
 }
