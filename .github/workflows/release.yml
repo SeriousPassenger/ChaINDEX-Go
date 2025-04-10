@@ -1,21 +1,67 @@
-# .github/workflows/release.yaml
+name: Auto Versioned Release
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
 
 permissions:
-    contents: write
-    packages: write
+  contents: write
+  packages: write
 
 jobs:
-  release-linux-amd64:
-    name: release linux/amd64
+  tag-version:
+    name: Bump and Tag Version
     runs-on: ubuntu-latest
+    outputs:
+      new_tag: ${{ steps.bump.outputs.new_tag }}
     steps:
-    - uses: actions/checkout@v4
-    - uses: wangyoucao577/go-release-action@v1
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        goos: linux
-        goarch: amd64
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Fetch all tags
+        run: git fetch --tags
+
+      - name: Bump patch version
+        id: bump
+        run: |
+          latest_tag=$(git tag --sort=-v:refname | grep '^v' | head -n 1)
+          echo "Latest tag: $latest_tag"
+
+          if [ -z "$latest_tag" ]; then
+            new_tag="v0.1.0"
+          else
+            IFS='.' read -r major minor patch <<< "${latest_tag#v}"
+            patch=$((patch + 1))
+            new_tag="v$major.$minor.$patch"
+          fi
+
+          echo "New tag: $new_tag"
+          echo "new_tag=$new_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Create new tag and push
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag ${{ steps.bump.outputs.new_tag }}
+          git push origin ${{ steps.bump.outputs.new_tag }}
+
+  release:
+    name: Release Go Binaries
+    needs: tag-version
+    if: startsWith(needs.tag-version.outputs.new_tag, 'v')
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, windows, darwin]
+        goarch: [amd64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: wangyoucao577/go-release-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          overwrite: true
+          release_tag: ${{ needs.tag-version.outputs.new_tag }}
