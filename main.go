@@ -58,7 +58,7 @@ func main() {
 	// Define the --config (or -c) flag
 	testConnectionCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
 
-	TestGetBlocksBatchCmd := &cobra.Command{
+	testGetBlocksBatchCmd := &cobra.Command{
 		Use:   "test-get-blocks-batch",
 		Short: "Test the get blocks batch functionality",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -104,11 +104,11 @@ func main() {
 		},
 	}
 
-	TestGetBlocksBatchCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
+	testGetBlocksBatchCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
 
-	TestGetLogsBatchCmd := &cobra.Command{
-		Use:   "test-get-logs-batch",
-		Short: "Test the get logs batch functionality",
+	testGetReceiptsBatchCmd := &cobra.Command{
+		Use:   "test-get-receipts-batch",
+		Short: "Test the get receipts batch functionality",
 		Run: func(cmd *cobra.Command, args []string) {
 			if configFile == "" {
 				cmd.Println("Error: config file path is required (use --config).")
@@ -123,40 +123,40 @@ func main() {
 			}
 
 			client, err := GetClient(config)
+
 			if err != nil {
 				cmd.Println("Error getting client:", err)
 				return
 			}
 
-			// Example block numbers to fetch
-			blockNumbers := []*big.Int{
-				big.NewInt(1_000_000),
+			// Example transaction hashes to fetch
+			transactions := []string{
+				"0x9c223f125a698edadd81665082f4de89a20d44ad267e83cf2210a28225a5c89a",
 			}
 
-			logs, err := GetLogsBatch(client, blockNumbers)
+			receipts, err := GetReceiptsBatch(client, transactions)
 
 			if err != nil {
-				cmd.Println("Error fetching logs:", err)
+				cmd.Println("Error fetching receipts:", err)
 				return
 			}
 
-			err = SaveStructToJSONFile(logs, "logs_debug.json")
-
+			err = SaveStructToJSONFile(receipts, "receipts_debug.json")
 			if err != nil {
-				cmd.Println("Error saving logs to file:", err)
+				cmd.Println("Error saving receipts to file:", err)
 				return
 			}
 
-			fmt.Println("Logs fetched and saved successfully.")
+			fmt.Println("Receipts fetched and saved successfully.")
 		},
 	}
-	TestGetLogsBatchCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
+	testGetReceiptsBatchCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
 
 	// Add subcommands to root
 	rootCmd.AddCommand(createConfigCmd)
 	rootCmd.AddCommand(testConnectionCmd)
-	rootCmd.AddCommand(TestGetBlocksBatchCmd)
-	rootCmd.AddCommand(TestGetLogsBatchCmd)
+	rootCmd.AddCommand(testGetBlocksBatchCmd)
+	rootCmd.AddCommand(testGetReceiptsBatchCmd)
 
 	// Execute root command
 	if err := rootCmd.Execute(); err != nil {

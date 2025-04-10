@@ -63,6 +63,28 @@ type RpcLog struct {
 	Removed          bool     `json:"removed"`
 }
 
+type RpcReceipt struct {
+	BlockHash         string   `json:"blockHash"`
+	BlockNumber       string   `json:"blockNumber"`
+	ContractAddress   string   `json:"contractAddress"`
+	CumulativeGasUsed string   `json:"cumulativeGasUsed"`
+	GasUsed           string   `json:"gasUsed"`
+	Status            string   `json:"status"`
+	To                string   `json:"to"`
+	TransactionHash   string   `json:"transactionHash"`
+	TransactionIndex  string   `json:"transactionIndex"`
+	Logs              []RpcLog `json:"logs"`
+	LogsBloom         string   `json:"logsBloom"`
+	Root              string   `json:"root"`
+	From              string   `json:"from"`
+	EffectiveGasPrice string   `json:"effectiveGasPrice"`
+	Type              string   `json:"type"`
+	ChainId           string   `json:"chainId"`
+	V                 string   `json:"v"`
+	R                 string   `json:"r"`
+	S                 string   `json:"s"`
+}
+
 func GetLastBlockNumber(client *rpc.Client) (string, error) {
 	var blockNumber string
 	err := client.Call(&blockNumber, "eth_blockNumber")
@@ -127,24 +149,15 @@ func GetBlocksBatch(client *rpc.Client, blocks []*big.Int) ([]RpcBlock, error) {
 	return responses, nil
 }
 
-func GetLogsBatch(client *rpc.Client, blocks []*big.Int) ([]RpcLog, error) {
+func GetReceiptsBatch(client *rpc.Client, transactions []string) ([]RpcReceipt, error) {
 	var batch []rpc.BatchElem
 
-	for _, block := range blocks {
-		blockHex := BigIntToHex(block)
-
-		filterQuery := map[string]interface{}{
-			"fromBlock": blockHex,
-			"toBlock":   blockHex,
-		}
-
-		log.Printf("Fetching logs for block %s", blockHex)
-
+	for _, transaction := range transactions {
 		var raw json.RawMessage
 		batch = append(batch, rpc.BatchElem{
-			Method: "eth_getLogs",
+			Method: "eth_getTransactionReceipt",
+			Args:   []interface{}{transaction},
 			Result: &raw,
-			Args:   []any{filterQuery},
 		})
 	}
 
@@ -154,7 +167,7 @@ func GetLogsBatch(client *rpc.Client, blocks []*big.Int) ([]RpcLog, error) {
 		return nil, fmt.Errorf("failed to execute batch call: %w", err)
 	}
 
-	responses := make([]RpcLog, 0)
+	responses := make([]RpcReceipt, 0)
 
 	for _, elem := range batch {
 		if elem.Error != nil {
@@ -167,13 +180,13 @@ func GetLogsBatch(client *rpc.Client, blocks []*big.Int) ([]RpcLog, error) {
 			continue
 		}
 
-		var response []RpcLog
+		var response RpcReceipt
 		if err := json.Unmarshal(*raw, &response); err != nil {
 			log.Printf("failed to unmarshal JSON: %v", err)
 			continue
 		}
 
-		responses = append(responses, response...)
+		responses = append(responses, response)
 	}
 
 	return responses, nil

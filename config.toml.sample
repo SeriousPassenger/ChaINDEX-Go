@@ -3,3 +3,4 @@
   delay = 1000
   timeout = 5
   retry = 3
+  batch_size = 1
