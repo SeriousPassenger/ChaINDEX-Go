@@ -10,14 +10,15 @@ permissions:
   packages: write
 
 jobs:
+  #########################################################
+  # 1) Create & Push the Next Tag Automatically
+  #########################################################
   tag-version:
-    name: Bump and Tag Version
     runs-on: ubuntu-latest
     outputs:
       new_tag: ${{ steps.bump.outputs.new_tag }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Fetch all tags
         run: git fetch --tags
@@ -25,33 +26,60 @@ jobs:
       - name: Bump patch version
         id: bump
         run: |
+          # Grab the latest tag that starts with 'v', e.g. "v1.2.3"
           latest_tag=$(git tag --sort=-v:refname | grep '^v' | head -n 1)
+          echo "Latest tag: $latest_tag"
+
           if [ -z "$latest_tag" ]; then
+            # If none, start at v0.1.0
             new_tag="v0.1.0"
           else
+            # Bump the PATCH component (v1.2.3 -> v1.2.4)
             IFS='.' read -r major minor patch <<< "${latest_tag#v}"
             patch=$((patch + 1))
             new_tag="v$major.$minor.$patch"
           fi
 
+          echo "Bumped tag to: $new_tag"
           echo "new_tag=$new_tag" >> "$GITHUB_OUTPUT"
 
-      - name: Create new tag and push
+      - name: Create & Push Tag
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git tag ${{ steps.bump.outputs.new_tag }}
           git push origin ${{ steps.bump.outputs.new_tag }}
 
-  release:
-    name: Release Go Binaries
+  #########################################################
+  # 2) Create an Empty Release for That New Tag
+  #########################################################
+  create-release:
+    name: Create Release
     needs: tag-version
-    if: startsWith(needs.tag-version.outputs.new_tag, 'v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Release on GitHub
+        uses: actions/create-release@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ needs.tag-version.outputs.new_tag }}
+          release_name: ${{ needs.tag-version.outputs.new_tag }}
+          draft: false
+          prerelease: false
+
+  #########################################################
+  # 3) Upload Go Binaries to the Existing Release
+  #########################################################
+  release:
+    name: Build & Upload Go Binaries
+    needs:
+      - tag-version
+      - create-release
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos: [linux, windows, darwin]
-        goarch: [amd64]
+        goos: [linux, windows, darwin]  # Add more if you want
+        goarch: [amd64]                # e.g. [amd64, arm64]
     steps:
       - uses: actions/checkout@v4
 
@@ -61,5 +89,4 @@ jobs:
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
           release_tag: ${{ needs.tag-version.outputs.new_tag }}
-          create_release: true     # <-- This is what fixes the 404
           overwrite: true
