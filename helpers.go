@@ -12,14 +12,14 @@ func HexToBigInt(hexString string) (*big.Int, error) {
 	hexString = strings.ToLower(hexString)
 
 	if !strings.HasPrefix(hexString, "0x") {
-		return nil, fmt.Errorf("invalid hex prefix: %s", hexString)
+		return nil, nil
 	}
 
 	sub := hexString[2:]
 	value := new(big.Int)
 
 	if _, ok := value.SetString(sub, 16); !ok {
-		return nil, fmt.Errorf("invalid hex digits: %s", hexString)
+		return nil, nil
 	}
 
 	return value, nil
@@ -45,9 +45,23 @@ func BigIntToHex(value *big.Int) string {
 	return hexString
 }
 
-func SaveStructToJSONFile(data interface{}, filename string) error {
+func SaveStructToJSONFile(data interface{}, path string) error {
+	// Create folders in the path if they do not exist
+	// Split the path into directories and file name
+	parts := strings.Split(path, "/")
+
+	// Create directories if they do not exist
+	for i := 0; i < len(parts)-1; i++ {
+		dir := strings.Join(parts[:i+1], "/")
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", dir, err)
+			}
+		}
+	}
+
 	// Save rawData to a file indent 4
-	file, err := os.Create(filename)
+	file, err := os.Create(path)
 
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)

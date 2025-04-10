@@ -23,7 +23,7 @@ func GetLastBlockNumber(client *ethclient.Client) (string, error) {
 }
 
 // GetBlocksBatch retrieves a batch of blocks from the Ethereum client.
-func GetBlocksBatch(client *rpc.Client, blocks []*big.Int) ([]RpcBlock, error) {
+func GetBlocksBatch(client *rpc.Client, blocks []*big.Int, fullBlocks bool) ([]any, error) {
 	var batch []rpc.BatchElem
 
 	for _, block := range blocks {
@@ -31,7 +31,7 @@ func GetBlocksBatch(client *rpc.Client, blocks []*big.Int) ([]RpcBlock, error) {
 		var raw json.RawMessage
 		batch = append(batch, rpc.BatchElem{
 			Method: "eth_getBlockByNumber",
-			Args:   []any{blockHex, true},
+			Args:   []any{blockHex, fullBlocks},
 			Result: &raw,
 		})
 	}
@@ -42,7 +42,7 @@ func GetBlocksBatch(client *rpc.Client, blocks []*big.Int) ([]RpcBlock, error) {
 		return nil, fmt.Errorf("failed to execute batch call: %w", err)
 	}
 
-	responses := make([]RpcBlock, 0)
+	responses := make([]any, 0)
 
 	for _, elem := range batch {
 		if elem.Error != nil {
@@ -55,10 +55,20 @@ func GetBlocksBatch(client *rpc.Client, blocks []*big.Int) ([]RpcBlock, error) {
 			continue
 		}
 
-		var response RpcBlock
-		if err := json.Unmarshal(*raw, &response); err != nil {
-			log.Printf("failed to unmarshal JSON: %v", err)
-			continue
+		var response any
+
+		if fullBlocks {
+			response = &RpcBlockFull{}
+			if err := json.Unmarshal(*raw, &response); err != nil {
+				log.Printf("failed to unmarshal JSON: %v", err)
+				continue
+			}
+		} else {
+			response = &RpcBlockMinimal{}
+			if err := json.Unmarshal(*raw, &response); err != nil {
+				log.Printf("failed to unmarshal JSON: %v", err)
+				continue
+			}
 		}
 
 		responses = append(responses, response)

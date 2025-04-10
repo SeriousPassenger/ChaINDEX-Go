@@ -6,30 +6,31 @@ import "math/big"
 /* ====================== RPC Response Data Structures ======================= */
 /* =========================================================================== */
 
-type RpcBlock struct {
-	Difficulty       string           `json:"difficulty"`
-	ExtraData        string           `json:"extraData"`
-	GasLimit         string           `json:"gasLimit"`
-	GasUsed          string           `json:"gasUsed"`
-	Hash             string           `json:"hash"`
-	LogsBloom        string           `json:"logsBloom"`
-	Miner            string           `json:"miner"`
-	MixHash          string           `json:"mixHash"`
-	Nonce            string           `json:"nonce"`
-	Number           string           `json:"number"`
-	ParentHash       string           `json:"parentHash"`
-	ReceiptsRoot     string           `json:"receiptsRoot"`
-	Sha3Uncles       string           `json:"sha3Uncles"`
-	Size             string           `json:"size"`
-	StateRoot        string           `json:"stateRoot"`
-	Timestamp        string           `json:"timestamp"`
-	TotalDifficulty  string           `json:"totalDifficulty"`
-	Transactions     []RpcTransaction `json:"transactions"`
-	TransactionsRoot string           `json:"transactionsRoot"`
-	Uncles           []string         `json:"uncles"`
+// RpcBlockFull has the full block data (full transactions)
+type RpcBlockFull struct {
+	Difficulty       string               `json:"difficulty"`
+	ExtraData        string               `json:"extraData"`
+	GasLimit         string               `json:"gasLimit"`
+	GasUsed          string               `json:"gasUsed"`
+	Hash             string               `json:"hash"`
+	LogsBloom        string               `json:"logsBloom"`
+	Miner            string               `json:"miner"`
+	MixHash          string               `json:"mixHash"`
+	Nonce            string               `json:"nonce"`
+	Number           string               `json:"number"`
+	ParentHash       string               `json:"parentHash"`
+	ReceiptsRoot     string               `json:"receiptsRoot"`
+	Sha3Uncles       string               `json:"sha3Uncles"`
+	Size             string               `json:"size"`
+	StateRoot        string               `json:"stateRoot"`
+	Timestamp        string               `json:"timestamp"`
+	TotalDifficulty  string               `json:"totalDifficulty"`
+	Transactions     []RpcTransactionFull `json:"transactions"`
+	TransactionsRoot string               `json:"transactionsRoot"`
+	Uncles           []string             `json:"uncles"`
 }
 
-type RpcTransaction struct {
+type RpcTransactionFull struct {
 	BlockHash        string `json:"blockHash"`
 	BlockNumber      string `json:"blockNumber"`
 	From             string `json:"from"`
@@ -46,6 +47,30 @@ type RpcTransaction struct {
 	V                string `json:"v"`
 	R                string `json:"r"`
 	S                string `json:"s"`
+}
+
+// RpcBlockMinimal has the minimal block data (Only tx hashes)
+type RpcBlockMinimal struct {
+	Difficulty       string   `json:"difficulty"`
+	ExtraData        string   `json:"extraData"`
+	GasLimit         string   `json:"gasLimit"`
+	GasUsed          string   `json:"gasUsed"`
+	Hash             string   `json:"hash"`
+	LogsBloom        string   `json:"logsBloom"`
+	Miner            string   `json:"miner"`
+	MixHash          string   `json:"mixHash"`
+	Nonce            string   `json:"nonce"`
+	Number           string   `json:"number"`
+	ParentHash       string   `json:"parentHash"`
+	ReceiptsRoot     string   `json:"receiptsRoot"`
+	Sha3Uncles       string   `json:"sha3Uncles"`
+	Size             string   `json:"size"`
+	StateRoot        string   `json:"stateRoot"`
+	Timestamp        string   `json:"timestamp"`
+	TotalDifficulty  string   `json:"totalDifficulty"`
+	Transactions     []string `json:"transactions"`
+	TransactionsRoot string   `json:"transactionsRoot"`
+	Uncles           []string `json:"uncles"`
 }
 
 type RpcLog struct {
@@ -81,7 +106,49 @@ type RpcReceipt struct {
 /* ====================== Converted Data Structures ======================= */
 /* ========================================================================== */
 
-type BaseBlock struct {
+type BlockFull struct {
+	Difficulty       *big.Int          `json:"difficulty"`
+	ExtraData        string            `json:"extraData"`
+	GasLimit         *big.Int          `json:"gasLimit"`
+	GasUsed          *big.Int          `json:"gasUsed"`
+	Hash             string            `json:"hash"`
+	LogsBloom        string            `json:"logsBloom"`
+	Miner            string            `json:"miner"`
+	MixHash          string            `json:"mixHash"`
+	Nonce            *big.Int          `json:"nonce"`
+	Number           *big.Int          `json:"number"`
+	ParentHash       string            `json:"parentHash"`
+	ReceiptsRoot     string            `json:"receiptsRoot"`
+	Sha3Uncles       string            `json:"sha3Uncles"`
+	Size             *big.Int          `json:"size"`
+	StateRoot        string            `json:"stateRoot"`
+	Timestamp        *big.Int          `json:"timestamp"`
+	TotalDifficulty  *big.Int          `json:"totalDifficulty"`
+	TransactionsRoot string            `json:"transactionsRoot"`
+	Uncles           []string          `json:"uncles"`
+	Transactions     []TransactionFull `json:"transactions"`
+}
+
+type TransactionFull struct {
+	BlockHash        string   `json:"blockHash"`
+	BlockNumber      *big.Int `json:"blockNumber"`
+	From             string   `json:"from"`
+	Gas              *big.Int `json:"gas"`
+	GasPrice         *big.Int `json:"gasPrice"`
+	Hash             string   `json:"hash"`
+	Input            string   `json:"input"`
+	Nonce            *big.Int `json:"nonce"`
+	To               string   `json:"to"`
+	TransactionIndex *big.Int `json:"transactionIndex"`
+	Value            *big.Int `json:"value"`
+	Type             *big.Int `json:"type"`
+	ChainId          *big.Int `json:"chainId"`
+	V                string   `json:"v"`
+	R                string   `json:"r"`
+	S                string   `json:"s"`
+}
+
+type BlockMinimal struct {
 	Difficulty       *big.Int `json:"difficulty"`
 	ExtraData        string   `json:"extraData"`
 	GasLimit         *big.Int `json:"gasLimit"`
@@ -101,25 +168,7 @@ type BaseBlock struct {
 	TotalDifficulty  *big.Int `json:"totalDifficulty"`
 	TransactionsRoot string   `json:"transactionsRoot"`
 	Uncles           []string `json:"uncles"`
-}
-
-type Transaction struct {
-	BlockHash        string   `json:"blockHash"`
-	BlockNumber      *big.Int `json:"blockNumber"`
-	From             string   `json:"from"`
-	Gas              *big.Int `json:"gas"`
-	GasPrice         *big.Int `json:"gasPrice"`
-	Hash             string   `json:"hash"`
-	Input            string   `json:"input"`
-	Nonce            *big.Int `json:"nonce"`
-	To               string   `json:"to"`
-	TransactionIndex *big.Int `json:"transactionIndex"`
-	Value            *big.Int `json:"value"`
-	Type             *big.Int `json:"type"`
-	ChainId          *big.Int `json:"chainId"`
-	V                string   `json:"v"`
-	R                string   `json:"r"`
-	S                string   `json:"s"`
+	Transactions     []string `json:"transactions"`
 }
 
 type Log struct {
@@ -148,17 +197,12 @@ type Receipt struct {
 	LogsBloom         string   `json:"logsBloom"`
 	From              string   `json:"from"`
 	EffectiveGasPrice *big.Int `json:"effectiveGasPrice"`
-	Type              string   `json:"type"`
+	Type              *big.Int `json:"type"`
 }
 
 type FullTransaction struct {
-	BaseTransaction Transaction `json:"baseTransaction"`
-	Receipt         Receipt     `json:"receipt"`
-}
-
-type FullBlock struct {
-	BaseBlock        BaseBlock         `json:"baseBlock"`
-	FullTransactions []FullTransaction `json:"fullTransactions"`
+	BaseTransaction TransactionFull `json:"baseTransaction"`
+	Receipt         Receipt         `json:"receipt"`
 }
 
 type ContractCode struct {

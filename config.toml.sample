@@ -4,8 +4,9 @@
   batch_size = 1
 
 [scan]
-  from_block = "1"
-  to_block = "100"
+  from_block = 1
+  to_block = 100
+  full_blocks = true
   scan_balances = true
   scan_receipts = true
   scan_contract_code = true

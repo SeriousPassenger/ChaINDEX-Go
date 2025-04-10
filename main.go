@@ -1,6 +1,8 @@
 package main
 
-import "log"
+import (
+	"log"
+)
 
 func main() {
 	// -----------------------------------------
@@ -22,9 +24,19 @@ func main() {
 		log.Fatalf("Error loading config: %v", err)
 	}
 
-	_, err = GetRpcClient(config)
+	err = ScanBlocksWithConfig(config)
 
 	if err != nil {
-		log.Fatalf("Error creating RPC client: %v", err)
+		log.Fatalf("Error scanning blocks: %v", err)
+	}
+
+	testTxs := []string{
+		"0xfa1b20dff53f445aff3aef41b29d0eb085867fb81495a193fb45faa6a3429952",
+	}
+
+	err = ScanReceiptsWithConfig(config, testTxs)
+
+	if err != nil {
+		log.Fatalf("Error scanning receipts: %v", err)
 	}
 }

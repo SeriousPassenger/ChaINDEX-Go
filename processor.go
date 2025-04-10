@@ -2,213 +2,273 @@ package main
 
 import (
 	"fmt"
+	"math/big"
 )
 
-// ------------------------------------------------------
-// Convert RPC structures to internal structures
-// ------------------------------------------------------
-
-func RpcTransactionToTransaction(tx *RpcTransaction) (*Transaction, error) {
-
-	inputStrings := []string{
-		tx.BlockNumber,
-		tx.Value,
-		tx.Gas,
-		tx.GasPrice,
-		tx.Nonce,
-		tx.TransactionIndex,
-		tx.ChainId,
-		tx.Type,
-	}
-
-	bigIntValues, err := HexToBigIntMultiple(inputStrings)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert hex strings to big.Int: %w", err)
-	}
-
-	blockNumberInt, txValueInt, txGasInt, txGasPriceInt, txNonceInt, txIndexInt, chainIdInt, txTypeInt := bigIntValues[0], bigIntValues[1], bigIntValues[2], bigIntValues[3], bigIntValues[4], bigIntValues[5], bigIntValues[6], bigIntValues[7]
-
-	txOut := &Transaction{
-		BlockHash:        tx.BlockHash,
-		BlockNumber:      blockNumberInt,
-		From:             tx.From,
-		Gas:              txGasInt,
-		GasPrice:         txGasPriceInt,
-		Hash:             tx.Hash,
-		Input:            tx.Input,
-		Nonce:            txNonceInt,
-		To:               tx.To,
-		TransactionIndex: txIndexInt,
-		Value:            txValueInt,
-		Type:             txTypeInt,
-		ChainId:          chainIdInt,
-		V:                tx.V,
-		R:                tx.R,
-		S:                tx.S,
-	}
-
-	return txOut, nil
+/*
+type RpcBlockMinimal struct {
+	Difficulty       string   `json:"difficulty"`
+	ExtraData        string   `json:"extraData"`
+	GasLimit         string   `json:"gasLimit"`
+	GasUsed          string   `json:"gasUsed"`
+	Hash             string   `json:"hash"`
+	LogsBloom        string   `json:"logsBloom"`
+	Miner            string   `json:"miner"`
+	MixHash          string   `json:"mixHash"`
+	Nonce            string   `json:"nonce"`
+	Number           string   `json:"number"`
+	ParentHash       string   `json:"parentHash"`
+	ReceiptsRoot     string   `json:"receiptsRoot"`
+	Sha3Uncles       string   `json:"sha3Uncles"`
+	Size             string   `json:"size"`
+	StateRoot        string   `json:"stateRoot"`
+	Timestamp        string   `json:"timestamp"`
+	TotalDifficulty  string   `json:"totalDifficulty"`
+	Transactions     []string `json:"transactions"`
+	TransactionsRoot string   `json:"transactionsRoot"`
+	Uncles           []string `json:"uncles"`
 }
 
-func RpcLogToLog(log *RpcLog) (*Log, error) {
+*/
 
-	inputHexStrings := []string{
-		log.BlockNumber,
-		log.TransactionIndex,
-		log.LogIndex,
-	}
-
-	bigIntValues, err := HexToBigIntMultiple(inputHexStrings)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert hex strings to big.Int: %w", err)
-	}
-
-	blockNumberInt, transactionIndexInt, logIndexInt := bigIntValues[0], bigIntValues[1], bigIntValues[2]
-
-	logOut := &Log{
-		Address:          log.Address,
-		Topics:           log.Topics,
-		Data:             log.Data,
-		BlockNumber:      blockNumberInt,
-		TransactionHash:  log.TransactionHash,
-		TransactionIndex: transactionIndexInt,
-		BlockHash:        log.BlockHash,
-		LogIndex:         logIndexInt,
-		Removed:          log.Removed,
-	}
-
-	return logOut, nil
-}
-
-func RpcReceiptToReceipt(receipt *RpcReceipt) (*Receipt, error) {
-	inputHexStrings := []string{
-		receipt.BlockNumber,
-		receipt.CumulativeGasUsed,
-		receipt.GasUsed,
-		receipt.TransactionIndex,
-		receipt.EffectiveGasPrice,
-	}
-
-	bigIntValues, err := HexToBigIntMultiple(inputHexStrings)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert hex strings to big.Int: %w", err)
-	}
-
-	blockNumberInt, cumulativeGasUsedInt, gasUsedInt, transactionIndexInt, effectiveGasPriceInt := bigIntValues[0], bigIntValues[1], bigIntValues[2], bigIntValues[3], bigIntValues[4]
-
-	// Convert the logs to the new format
-	logs := make([]Log, len(receipt.Logs))
-
-	for i, log := range receipt.Logs {
-		logResult, err := RpcLogToLog(&log)
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert log: %w", err)
-		}
-
-		logs[i] = *logResult
-	}
-
-	receiptOut := &Receipt{
-		BlockHash:         receipt.BlockHash,
-		BlockNumber:       blockNumberInt,
-		ContractAddress:   receipt.ContractAddress,
-		CumulativeGasUsed: cumulativeGasUsedInt,
-		GasUsed:           gasUsedInt,
-		Status:            receipt.Status,
-		To:                receipt.To,
-		TransactionHash:   receipt.TransactionHash,
-		TransactionIndex:  transactionIndexInt,
-		Logs:              logs,
-		LogsBloom:         receipt.LogsBloom,
-		From:              receipt.From,
-		EffectiveGasPrice: effectiveGasPriceInt,
-		Type:              receipt.Type,
-	}
-
-	return receiptOut, nil
-}
-
-func RpcBlockToBlockAndTransactions(block *RpcBlock) (*BaseBlock, []*Transaction, error) {
+func RpcBlockMinimalToBlockMinimal(rpcBlock *RpcBlockMinimal) (*BlockMinimal, error) {
 	hexStrings := []string{
-		block.Difficulty,
-		block.GasLimit,
-		block.GasUsed,
-		block.Nonce,
-		block.Number,
-		block.Size,
-		block.Timestamp,
-		block.TotalDifficulty,
+		rpcBlock.Difficulty,
+		rpcBlock.GasLimit,
+		rpcBlock.GasUsed,
+		rpcBlock.Nonce,
+		rpcBlock.Number,
+		rpcBlock.Size,
+		rpcBlock.Timestamp,
+		rpcBlock.TotalDifficulty,
 	}
 
-	bigIntValues, err := HexToBigIntMultiple(hexStrings)
+	// Convert hex strings to big.Int
+	values, err := HexToBigIntMultiple(hexStrings)
 
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to convert hex strings to big.Int: %w", err)
+		return nil, fmt.Errorf("failed to convert hex strings to big.Int: %w", err)
 	}
 
-	diffInt, gasLimitInt, gasUsedInt, nonceInt, numberInt, sizeInt, timestampInt, totalDiffInt := bigIntValues[0], bigIntValues[1], bigIntValues[2], bigIntValues[3], bigIntValues[4], bigIntValues[5], bigIntValues[6], bigIntValues[7]
-
-	baseBlock := &BaseBlock{
-		Difficulty:       diffInt,
-		ExtraData:        block.ExtraData,
-		GasLimit:         gasLimitInt,
-		GasUsed:          gasUsedInt,
-		Hash:             block.Hash,
-		LogsBloom:        block.LogsBloom,
-		Miner:            block.Miner,
-		MixHash:          block.MixHash,
-		Nonce:            nonceInt,
-		Number:           numberInt,
-		ParentHash:       block.ParentHash,
-		ReceiptsRoot:     block.ReceiptsRoot,
-		Sha3Uncles:       block.Sha3Uncles,
-		Size:             sizeInt,
-		StateRoot:        block.StateRoot,
-		Timestamp:        timestampInt,
-		TotalDifficulty:  totalDiffInt,
-		TransactionsRoot: block.TransactionsRoot,
-		Uncles:           block.Uncles,
+	// Create a map to associate hex strings with their corresponding big.Int values
+	hexToBigIntMap := map[string]*big.Int{
+		rpcBlock.Difficulty:      values[0],
+		rpcBlock.GasLimit:        values[1],
+		rpcBlock.GasUsed:         values[2],
+		rpcBlock.Nonce:           values[3],
+		rpcBlock.Number:          values[4],
+		rpcBlock.Size:            values[5],
+		rpcBlock.Timestamp:       values[6],
+		rpcBlock.TotalDifficulty: values[7],
 	}
 
-	transactions := make([]*Transaction, len(block.Transactions))
+	block := &BlockMinimal{
+		Timestamp:        hexToBigIntMap[rpcBlock.Timestamp],
+		Difficulty:       hexToBigIntMap[rpcBlock.Difficulty],
+		ExtraData:        rpcBlock.ExtraData,
+		GasLimit:         hexToBigIntMap[rpcBlock.GasLimit],
+		GasUsed:          hexToBigIntMap[rpcBlock.GasUsed],
+		Hash:             rpcBlock.Hash,
+		LogsBloom:        rpcBlock.LogsBloom,
+		Miner:            rpcBlock.Miner,
+		MixHash:          rpcBlock.MixHash,
+		Nonce:            hexToBigIntMap[rpcBlock.Nonce],
+		Number:           hexToBigIntMap[rpcBlock.Number],
+		ParentHash:       rpcBlock.ParentHash,
+		ReceiptsRoot:     rpcBlock.ReceiptsRoot,
+		Sha3Uncles:       rpcBlock.Sha3Uncles,
+		Size:             hexToBigIntMap[rpcBlock.Size],
+		StateRoot:        rpcBlock.StateRoot,
+		TotalDifficulty:  hexToBigIntMap[rpcBlock.TotalDifficulty],
+		TransactionsRoot: rpcBlock.TransactionsRoot,
+		Uncles:           rpcBlock.Uncles,
+		Transactions:     rpcBlock.Transactions,
+	}
 
-	for i, tx := range block.Transactions {
-		outTX, err := RpcTransactionToTransaction(&tx)
+	return block, nil
+}
 
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to convert transaction: %w", err)
+func RpcBlockFullToBlockFull(rpcBlock *RpcBlockFull) (*BlockFull, error) {
+	hexStrings := []string{
+		rpcBlock.Difficulty,
+		rpcBlock.GasLimit,
+		rpcBlock.GasUsed,
+		rpcBlock.Nonce,
+		rpcBlock.Number,
+		rpcBlock.Size,
+		rpcBlock.Timestamp,
+		rpcBlock.TotalDifficulty,
+	}
+
+	// Convert hex strings to big.Int
+	values, err := HexToBigIntMultiple(hexStrings)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert hex strings to big.Int: %w", err)
+	}
+
+	// Create a map to associate hex strings with their corresponding big.Int values
+	hexToBigIntMap := map[string]*big.Int{
+		rpcBlock.Difficulty:      values[0],
+		rpcBlock.GasLimit:        values[1],
+		rpcBlock.GasUsed:         values[2],
+		rpcBlock.Nonce:           values[3],
+		rpcBlock.Number:          values[4],
+		rpcBlock.Size:            values[5],
+		rpcBlock.Timestamp:       values[6],
+		rpcBlock.TotalDifficulty: values[7],
+	}
+
+	transactions := make([]TransactionFull, len(rpcBlock.Transactions))
+
+	for i, tx := range rpcBlock.Transactions {
+		hexStrings := []string{
+			tx.BlockNumber,
+			tx.Gas,
+			tx.GasPrice,
+			tx.Nonce,
+			tx.ChainId,
+			tx.Type,
+			tx.TransactionIndex,
+			tx.Value,
 		}
 
-		transactions[i] = outTX
+		// Convert hex strings to big.Int
+		values, err := HexToBigIntMultiple(hexStrings)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert hex strings to big.Int: %w", err)
+		}
+
+		// Create a map to associate hex strings with their corresponding big.Int values
+		hexToBigIntMap := map[string]*big.Int{
+			tx.BlockNumber:      values[0],
+			tx.Gas:              values[1],
+			tx.GasPrice:         values[2],
+			tx.Nonce:            values[3],
+			tx.ChainId:          values[4],
+			tx.Type:             values[5],
+			tx.TransactionIndex: values[6],
+			tx.Value:            values[7],
+		}
+
+		transactions[i] = TransactionFull{
+			BlockHash:        tx.BlockHash,
+			BlockNumber:      hexToBigIntMap[tx.BlockNumber],
+			From:             tx.From,
+			Gas:              hexToBigIntMap[tx.Gas],
+			GasPrice:         hexToBigIntMap[tx.GasPrice],
+			Hash:             tx.Hash,
+			Input:            tx.Input,
+			Nonce:            hexToBigIntMap[tx.Nonce],
+			To:               tx.To,
+			TransactionIndex: hexToBigIntMap[tx.TransactionIndex],
+			Value:            hexToBigIntMap[tx.Value],
+			Type:             hexToBigIntMap[tx.Type],
+			ChainId:          hexToBigIntMap[tx.ChainId],
+			V:                tx.V,
+			R:                tx.R,
+			S:                tx.S,
+		}
+
 	}
 
-	return baseBlock, transactions, nil
+	block := &BlockFull{
+		Timestamp:        hexToBigIntMap[rpcBlock.Timestamp],
+		Difficulty:       hexToBigIntMap[rpcBlock.Difficulty],
+		ExtraData:        rpcBlock.ExtraData,
+		GasLimit:         hexToBigIntMap[rpcBlock.GasLimit],
+		GasUsed:          hexToBigIntMap[rpcBlock.GasUsed],
+		Hash:             rpcBlock.Hash,
+		LogsBloom:        rpcBlock.LogsBloom,
+		Miner:            rpcBlock.Miner,
+		MixHash:          rpcBlock.MixHash,
+		Nonce:            hexToBigIntMap[rpcBlock.Nonce],
+		Number:           hexToBigIntMap[rpcBlock.Number],
+		ParentHash:       rpcBlock.ParentHash,
+		ReceiptsRoot:     rpcBlock.ReceiptsRoot,
+		Sha3Uncles:       rpcBlock.Sha3Uncles,
+		Size:             hexToBigIntMap[rpcBlock.Size],
+		StateRoot:        rpcBlock.StateRoot,
+		TotalDifficulty:  hexToBigIntMap[rpcBlock.TotalDifficulty],
+		TransactionsRoot: rpcBlock.TransactionsRoot,
+		Uncles:           rpcBlock.Uncles,
+		Transactions:     transactions,
+	}
+
+	return block, nil
 }
 
-// ------------------------------------------------------
-// Combine internal structures into full structures
-// ------------------------------------------------------
-
-func TransactionToFullTransaction(tx *Transaction, receipt *Receipt) *FullTransaction {
-	return &FullTransaction{
-		BaseTransaction: *tx,
-		Receipt:         *receipt,
-	}
-}
-
-func GetFullBlock(block *BaseBlock, transactions []*Transaction, receipts []*Receipt) *FullBlock {
-	fullTransactions := make([]FullTransaction, len(transactions))
-
-	for i, tx := range transactions {
-		fullTransactions[i] = *TransactionToFullTransaction(tx, receipts[i])
+func RpcReceiptToReceipt(rpcReceipt *RpcReceipt) (*Receipt, error) {
+	hexStrings := []string{
+		rpcReceipt.BlockNumber,
+		rpcReceipt.CumulativeGasUsed,
+		rpcReceipt.EffectiveGasPrice,
+		rpcReceipt.GasUsed,
+		rpcReceipt.TransactionIndex,
+		rpcReceipt.ContractAddress,
 	}
 
-	return &FullBlock{
-		BaseBlock:        *block,
-		FullTransactions: fullTransactions,
+	// Convert hex strings to big.Int
+	values, err := HexToBigIntMultiple(hexStrings)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert hex strings to big.Int: %w", err)
 	}
+
+	// Create a map to associate hex strings with their corresponding big.Int values
+	hexToBigIntMap := map[string]*big.Int{
+		rpcReceipt.BlockNumber:       values[0],
+		rpcReceipt.CumulativeGasUsed: values[1],
+		rpcReceipt.EffectiveGasPrice: values[2],
+		rpcReceipt.GasUsed:           values[3],
+		rpcReceipt.TransactionIndex:  values[4],
+		rpcReceipt.Type:              values[5],
+	}
+
+	logs := make([]Log, len(rpcReceipt.Logs))
+
+	for i, log := range rpcReceipt.Logs {
+		hexStrings := []string{
+			log.LogIndex,
+		}
+
+		// Convert hex strings to big.Int
+		values, err := HexToBigIntMultiple(hexStrings)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert hex strings to big.Int: %w", err)
+		}
+
+		hexToBigIntMap[log.LogIndex] = values[0]
+
+		logs[i] = Log{
+			Address:          log.Address,
+			Topics:           log.Topics,
+			Data:             log.Data,
+			BlockNumber:      hexToBigIntMap[log.BlockNumber],
+			TransactionHash:  log.TransactionHash,
+			TransactionIndex: hexToBigIntMap[log.TransactionIndex],
+			BlockHash:        log.BlockHash,
+			LogIndex:         hexToBigIntMap[log.LogIndex],
+			Removed:          log.Removed,
+		}
+	}
+
+	return &Receipt{
+		BlockHash:         rpcReceipt.BlockHash,
+		BlockNumber:       hexToBigIntMap[rpcReceipt.BlockNumber],
+		ContractAddress:   rpcReceipt.ContractAddress,
+		CumulativeGasUsed: hexToBigIntMap[rpcReceipt.CumulativeGasUsed],
+		GasUsed:           hexToBigIntMap[rpcReceipt.GasUsed],
+		Status:            rpcReceipt.Status,
+		To:                rpcReceipt.To,
+		TransactionHash:   rpcReceipt.TransactionHash,
+		TransactionIndex:  hexToBigIntMap[rpcReceipt.TransactionIndex],
+		Logs:              logs,
+		LogsBloom:         rpcReceipt.LogsBloom,
+		From:              rpcReceipt.From,
+		EffectiveGasPrice: hexToBigIntMap[rpcReceipt.EffectiveGasPrice],
+		Type:              hexToBigIntMap[rpcReceipt.Type],
+	}, nil
 }

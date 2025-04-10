@@ -16,23 +16,25 @@ const (
 	DefaultBatchSize = 1                       // Default batch size for requests
 
 	// Default values for the scanning configuration
-	DefaultFromBlock = 1
-	DefaultToBlock   = 100
-	ScanBalances     = true
-	ScanReceipts     = true
-	ScanContractCode = true
-	DefaultOutputDir = "output"
+	DefaultFromBlock  = 1
+	DefaultToBlock    = 100
+	DefaultFullBlocks = true
+	ScanBalances      = true
+	ScanReceipts      = true
+	ScanContractCode  = true
+	DefaultOutputDir  = "output"
 )
 
 type RpcConfig struct {
 	Url       string `toml:"url"`        // URL for the RPC server
-	Delay     int    `toml:"delay"`      // Delay between requests in milliseconds
-	BatchSize int    `toml:"batch_size"` // Batch size for requests
+	Delay     uint64 `toml:"delay"`      // Delay between requests in milliseconds
+	BatchSize uint64 `toml:"batch_size"` // Batch size for requests
 }
 
 type ScanConfig struct {
-	FromBlock    string `toml:"from_block"`         // Starting block for scanning
-	ToBlock      string `toml:"to_block"`           // Ending block for scanning
+	FromBlock    uint64 `toml:"from_block"`         // Starting block for scanning
+	ToBlock      uint64 `toml:"to_block"`           // Ending block for scanning
+	FullBlocks   bool   `toml:"full_blocks"`        // Flag to indicate if full blocks should be scanned
 	Balances     bool   `toml:"scan_balances"`      // Flag to indicate if balances should be scanned
 	Receipts     bool   `toml:"scan_receipts"`      // Flag to indicate if receipts should be scanned
 	ContractCode bool   `toml:"scan_contract_code"` // Flag to indicate if contract code should be scanned
@@ -51,12 +53,13 @@ func CreateSampleConfig() error {
 	sampleConfig.Rpc.Delay = DefaultRpcDelay
 	sampleConfig.Rpc.BatchSize = DefaultBatchSize
 
-	sampleConfig.Scan.FromBlock = fmt.Sprintf("%d", DefaultFromBlock)
-	sampleConfig.Scan.ToBlock = fmt.Sprintf("%d", DefaultToBlock)
+	sampleConfig.Scan.FromBlock = DefaultFromBlock
+	sampleConfig.Scan.ToBlock = DefaultToBlock
 	sampleConfig.Scan.Balances = ScanBalances
 	sampleConfig.Scan.Receipts = ScanReceipts
 	sampleConfig.Scan.ContractCode = ScanContractCode
 	sampleConfig.Scan.OutputDir = DefaultOutputDir
+	sampleConfig.Scan.FullBlocks = DefaultFullBlocks
 
 	// Marshal the sample configuration to TOML format
 	configData, err := toml.Marshal(sampleConfig)

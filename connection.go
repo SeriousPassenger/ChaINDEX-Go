@@ -7,8 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-func GetRpcClient(config *Config) (*rpc.Client, error) {
-	client, err := rpc.Dial(config.Rpc.Url)
+func GetRpcClient(path string) (*rpc.Client, error) {
+	client, err := rpc.Dial(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to RPC server: %w", err)
 	}
@@ -16,8 +16,8 @@ func GetRpcClient(config *Config) (*rpc.Client, error) {
 	return client, nil
 }
 
-func GetEthClient(config *Config) (*ethclient.Client, error) {
-	client, err := ethclient.Dial(config.Rpc.Url)
+func GetEthClient(path string) (*ethclient.Client, error) {
+	client, err := ethclient.Dial(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Ethereum client: %w", err)
 	}
@@ -26,7 +26,7 @@ func GetEthClient(config *Config) (*ethclient.Client, error) {
 }
 
 func TestConnection(config *Config) error {
-	client, err := GetEthClient(config)
+	client, err := GetEthClient(config.Rpc.Url)
 	if err != nil {
 		return err
 	}
