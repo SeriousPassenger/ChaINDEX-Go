@@ -39,6 +39,8 @@ jobs:
           fi
 
           echo "Bumped tag to: $new_tag"
+
+          # Using new-style environment file approach for outputs:
           echo "new_tag=$new_tag" >> "$GITHUB_OUTPUT"
 
       - name: Create & Push Tag
