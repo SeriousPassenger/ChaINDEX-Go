@@ -380,7 +380,7 @@ func ScanAllAccounts(config *Config) error {
 
 	lastAccountCount := 1
 
-	seenKeys := make(map[string]bool)
+	seenAccounts := make(map[string]bool)
 
 	// Main scanning loop.
 	for {
@@ -406,18 +406,24 @@ func ScanAllAccounts(config *Config) error {
 
 		// Update the scan key.
 		newKey := result.Next
-
-		if seenKeys[newKey] {
-			log.Printf("No more accounts to scan.\n")
-			break
-		}
-
-		seenKeys[newKey] = true
-
 		scanKey = newKey
+
+		completedScan := false
 
 		// Process each account in the batch.
 		for address, account := range result.Accounts {
+			if seenAccounts[address] {
+				log.Printf("Completely scanned all accounts !\n")
+				completedScan = true
+			}
+
+			seenAccounts[address] = true
+
+			if uint64(len(seenAccounts)) >= maxAccounts {
+				log.Printf("Reached the maximum number of accounts to scan: %d !\n", maxAccounts)
+				completedScan = true
+			}
+
 			if account.CodeHash == nonContractCodeHash {
 				numNonContracts++
 				account.IsContract = false
@@ -435,6 +441,11 @@ func ScanAllAccounts(config *Config) error {
 
 			}
 
+		}
+
+		if completedScan {
+			log.Printf("Completed scan!\n")
+			break
 		}
 
 		if iters%20 == 0 {
