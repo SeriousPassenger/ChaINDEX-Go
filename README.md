@@ -8,12 +8,16 @@ A simple set of tools for scanning an Ethereum based blockchain using the Ethere
 
 ## TODO
 
-* [ ] Scan and save block data given a start and end block.  (with/without full transactions)
-* [ ] Scan and save receipts given a blocks data file.
-* [ ] Extract contract creations from a given receipts data file.
-* [ ] Extract all unique accounts from a given full transactions block data file.
-* [ ] Scan the balances of a given set of accounts (including contracts), for given blocks (for historical analysis of balance) or the latest block.
-* [ ] Scan the contract codes of given set of contract addresses.
-* [ ] Targeting/filtering a set of addresses.
-* [ ] Create a data structure that combines all of the data with ability to export.
-* [ ] Resuming/updating the data with the latest new data.
+* [X] ~~*Scan and save full block data given a start and end block.*~~ [2025-04-11] 
+
+* [X] ~~*Scan receipt data for given blocks data file*~~ [2025-04-11]
+
+* [X] ~~*Scan all accounts data using debug_accountRange, with the ability to filter by contracts addresses.*~~ [2025-04-11]
+
+* [ ] Make the buffer logic for scanning and saving all account data better, dump to a single file using buffering instead.
+
+* [ ] Batch scan the code of contracts at a specific block.
+
+* [ ] Batch scan the balance of accounts at a specific block.
+
+* [ ] Scan receipt data for given json file of transactions array.
