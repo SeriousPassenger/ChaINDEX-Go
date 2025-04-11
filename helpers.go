@@ -99,30 +99,45 @@ func JSONToStruct(path string, data interface{}) error {
 	return nil
 }
 
-func IntToBase64(num int) string {
-	// Convert the integer to a byte array
-	bytes := make([]byte, 4)
-	for i := 0; i < 4; i++ {
-		bytes[3-i] = byte(num & 0xFF)
-		num >>= 8
-	}
-
-	// Encode the byte array to a base64 string
+// BigIntToBase64 converts a *big.Int* to a Base64 encoded string.
+func BigIntToBase64(num *big.Int) string {
+	// Get the big-endian byte slice representation of the number.
+	bytes := num.Bytes()
+	// Encode the byte slice to a Base64 string.
 	return base64.StdEncoding.EncodeToString(bytes)
 }
 
-func Base64ToInt(encodedStr string) (int, error) {
-	// Decode the base64 string to a byte array
+// Base64ToBigInt converts a Base64 encoded string back to a *big.Int*.
+func Base64ToBigInt(encodedStr string) (*big.Int, error) {
+	// Decode the Base64 string into a byte slice.
 	decodedBytes, err := base64.StdEncoding.DecodeString(encodedStr)
 	if err != nil {
-		return 0, fmt.Errorf("error decoding base64 string: %w", err)
+		return nil, fmt.Errorf("error decoding base64 string: %w", err)
 	}
 
-	// Convert the byte array back to an integer
-	num := 0
-	for i := 0; i < len(decodedBytes); i++ {
-		num = num<<8 + int(decodedBytes[i])
-	}
-
+	// Create a new big.Int and set its value from the byte slice.
+	num := new(big.Int)
+	num.SetBytes(decodedBytes)
 	return num, nil
+}
+
+func TestBase64Conversion(num *big.Int) {
+	encoded := BigIntToBase64(num)
+	fmt.Println("Encoded:", encoded)
+	fmt.Println("Hex:", "0x"+num.Text(16))
+
+	decoded, err := Base64ToBigInt(encoded)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	fmt.Println("Decoded:", decoded)
+
+	// Check if the original number and the decoded number are equal
+	if num.Cmp(decoded) == 0 {
+		fmt.Println("Success: The original and decoded numbers are equal.")
+	} else {
+		fmt.Println("Error: The original and decoded numbers are not equal.")
+	}
+	// Check if the original number and the decoded number are equal
 }

@@ -28,3 +28,27 @@ chaindex
 config.toml
 
 output/
+
+untracked/
+
+# VSCode
+
+.vscode/
+.vscode-test/
+
+# Python
+
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+*.eggs/
+*.egg
+*.whl
+*.mypy_cache/
+*.pytest_cache/
+*.coverage
+*.cover
+

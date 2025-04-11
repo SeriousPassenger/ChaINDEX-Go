@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"math/big"
+	"os"
 	"strings"
 	"time"
 	"unsafe"
@@ -312,19 +313,16 @@ func ScanAllAccounts(config *Config) error {
 	log.Printf("Starting the account scanner...\n")
 
 	client, err := GetRpcClient(config.Rpc.Url)
-
 	if err != nil {
 		return fmt.Errorf("failed to create RPC client: %w", err)
 	}
-
 	log.Printf("Connected to RPC server: %s\n", config.Rpc.Url)
 
 	batchSize := config.Scan.AccountScanConfig.BatchSize
-
 	scanKey := config.Scan.AccountScanConfig.StartKey
 	blockNumber := config.Scan.AccountScanConfig.BlockNumber
 	maxAccounts := config.Scan.AccountScanConfig.MaxAccounts
-	outputFileName := config.Scan.AccountScanConfig.OutputFileName
+	baseOutputFileName := config.Scan.AccountScanConfig.OutputFileName
 
 	if maxAccounts == 0 {
 		maxAccounts = math.MaxUint64
@@ -334,66 +332,91 @@ func ScanAllAccounts(config *Config) error {
 	log.Printf("Max accounts: %d\n", maxAccounts)
 	log.Printf("Start key: %s\n", scanKey)
 	log.Printf("Block number: %d\n", blockNumber)
-	log.Printf("Output file name: %s\n", outputFileName)
+	log.Printf("Output file name: %s\n", baseOutputFileName)
 	log.Printf("Delay between requests: %d ms\n", config.Rpc.Delay)
 	log.Printf("Starting the account scan...\n")
 
+	// Our in-memory store for accounts.
 	accounts := make(map[string]RpcAccount)
-
 	nonContractCodeHash := "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
-
 	numContracts := 0
 	numNonContracts := 0
+	numContractsWithBalance := 0
 
+	// Set up flush threshold and a slice to track chunk files.
+	const flushThresholdBytes = 10 * 1024 * 1024 // 10 MB
+	chunkFiles := []string{}
+
+	// flushAccounts flushes the current accounts map to disk and resets it.
+	flushAccounts := func() error {
+		chunkFileName := fmt.Sprintf("%s_%d.json", baseOutputFileName, len(chunkFiles)+1)
+		filePath := fmt.Sprintf("%s/%s", config.Scan.OutputDir, chunkFileName)
+		if err := SaveStructToJSONFile(accounts, filePath); err != nil {
+			return fmt.Errorf("failed to save accounts chunk to file: %w", err)
+		}
+		memoryUsageMB := (len(accounts) * int(unsafe.Sizeof(RpcAccount{}))) / (1024 * 1024)
+		log.Printf("Flushed %d accounts (approx %d MB) to file: %s\n", len(accounts), memoryUsageMB, filePath)
+		chunkFiles = append(chunkFiles, filePath)
+		// Reset the in-memory store.
+		accounts = make(map[string]RpcAccount)
+		return nil
+	}
+
+	totalAccounts := 0
+
+	latestAccount := &RpcAccount{
+		Balance:    "0",
+		Nonce:      0,
+		Root:       "",
+		CodeHash:   "",
+		IsContract: false,
+	}
+
+	latestAddress := "0x"
+
+	iters := 0
+
+	lastTime := time.Now()
+
+	lastAccountCount := 1
+
+	seenKeys := make(map[string]bool)
+
+	// Main scanning loop.
 	for {
-
+		iters++
 		if uint64(len(accounts)) >= maxAccounts {
 			log.Printf("Reached the maximum number of accounts to scan: %d\n", maxAccounts)
 			break
 		}
 
 		var raw json.RawMessage
-
 		err = client.Call(&raw, "debug_accountRange", blockNumber, scanKey, batchSize, true, true)
-
 		if err != nil {
 			return fmt.Errorf("failed to fetch accounts: %w", err)
 		}
 
-		// Add a delay between requests
+		// Delay between requests.
 		time.Sleep(time.Duration(config.Rpc.Delay) * time.Millisecond)
 
-		if len(raw) == 0 {
-			log.Printf("No more accounts to scan.\n")
-			break
-		}
-
 		var result RpcAccountPageResult
-
 		if err := json.Unmarshal(raw, &result); err != nil {
 			return fmt.Errorf("failed to unmarshal JSON: %w", err)
 		}
 
-		if result.Root == "" {
-			log.Printf("No more accounts to scan.\n")
-			break
-		}
-
+		// Update the scan key.
 		newKey := result.Next
 
-		newKeyInt, err := Base64ToInt(newKey)
-
-		if err != nil {
-			return fmt.Errorf("failed to convert new key: %w", err)
-		}
-
-		if newKeyInt == 0 {
+		if seenKeys[newKey] {
 			log.Printf("No more accounts to scan.\n")
 			break
 		}
+
+		seenKeys[newKey] = true
 
 		scanKey = newKey
 
+		// Process each account in the batch.
 		for address, account := range result.Accounts {
 			if account.CodeHash == nonContractCodeHash {
 				numNonContracts++
@@ -401,30 +424,99 @@ func ScanAllAccounts(config *Config) error {
 			} else {
 				numContracts++
 				account.IsContract = true
+				if account.Balance != "0" {
+					numContractsWithBalance++
+
+					accounts[address] = account
+
+					latestAccount = &account
+					latestAddress = address
+				}
+
 			}
 
-			accounts[address] = account
 		}
 
-		if len(accounts)%100000 == 0 {
-			log.Printf("Total: %d accounts (%d contracts, %d non-contracts), Size in MB: %d\n", len(accounts), numContracts, numNonContracts, len(accounts)*int(unsafe.Sizeof(RpcAccount{}))/1024/1024)
+		if iters%20 == 0 {
+			log.Printf("===========================================\n")
+
+			log.Printf("Total: %d accounts (%d contracts, %d non-contracts, %d contracts with balance)\n",
+				len(accounts), numContracts, numNonContracts, numContractsWithBalance)
+			log.Printf("===========================================\n")
+			scanKeyBigInt, _ := Base64ToBigInt(scanKey)
+			log.Printf("Current scan key: %s (%d)\n", scanKey, scanKeyBigInt)
+			log.Printf("===========================================\n")
+			log.Printf("Latest account item: \n")
+			log.Printf("Address: %s\n", latestAddress)
+			log.Printf("Balance: %s\n", latestAccount.Balance)
+			log.Printf("Nonce: %d\n", latestAccount.Nonce)
+			log.Printf("===========================================\n")
+			log.Printf("Time elapsed: %s\n", time.Since(lastTime))
+
+			accountsIncreased := len(accounts) - lastAccountCount
+			lastAccountCount = len(accounts)
+			accountPerMillisec := float64(accountsIncreased) / float64(time.Since(lastTime).Milliseconds())
+			log.Printf("Accounts per second: %.2f\n", accountPerMillisec*1000)
+
+			log.Printf("===========================================\n")
+			lastTime = time.Now()
 		}
 
+		// Flush if the estimated in-memory size exceeds the threshold.
+		currMemoryBytes := len(accounts) * int(unsafe.Sizeof(RpcAccount{}))
+		if currMemoryBytes >= flushThresholdBytes {
+			totalAccounts += len(accounts)
+			if err := flushAccounts(); err != nil {
+				return err
+			}
+		}
 	}
 
-	if len(accounts) == 0 {
-		return fmt.Errorf("no accounts fetched")
+	// Flush any remaining accounts.
+	if len(accounts) > 0 {
+		totalAccounts += len(accounts)
+		chunkFileName := fmt.Sprintf("%s_%d.json", baseOutputFileName, len(chunkFiles)+1)
+		filePath := fmt.Sprintf("%s/%s", config.Scan.OutputDir, chunkFileName)
+		if err := SaveStructToJSONFile(accounts, filePath); err != nil {
+			return fmt.Errorf("failed to save remaining accounts to file: %w", err)
+		}
+		log.Printf("Flushed final %d accounts to file: %s\n", len(accounts), filePath)
+		chunkFiles = append(chunkFiles, filePath)
 	}
 
-	filePath := fmt.Sprintf("%s/%s", config.Scan.OutputDir, outputFileName)
-
-	if err := SaveStructToJSONFile(accounts, filePath); err != nil {
-		return fmt.Errorf("failed to save accounts to file: %w", err)
+	// At this point, multiple chunk files have been created.
+	// Now merge them into one final file.
+	if len(chunkFiles) > 0 {
+		mergedAccounts := make(map[string]RpcAccount)
+		for _, chunkFile := range chunkFiles {
+			data, err := os.ReadFile(chunkFile)
+			if err != nil {
+				return fmt.Errorf("failed to read chunk file %s: %w", chunkFile, err)
+			}
+			var chunkData map[string]RpcAccount
+			if err := json.Unmarshal(data, &chunkData); err != nil {
+				return fmt.Errorf("failed to unmarshal chunk file %s: %w", chunkFile, err)
+			}
+			for k, v := range chunkData {
+				mergedAccounts[k] = v
+			}
+		}
+		mergedFile := fmt.Sprintf("%s/%s_merged.json", config.Scan.OutputDir, baseOutputFileName)
+		if err := SaveStructToJSONFile(mergedAccounts, mergedFile); err != nil {
+			return fmt.Errorf("failed to save merged accounts to file: %w", err)
+		}
+		log.Printf("Merged %d chunk files into final file: %s\n", len(chunkFiles), mergedFile)
+	} else {
+		// No chunk files were written so far. This means no flush was needed,
+		// and you already have the complete data in memory.
+		mergedFile := fmt.Sprintf("%s/%s.json", config.Scan.OutputDir, baseOutputFileName)
+		if err := SaveStructToJSONFile(accounts, mergedFile); err != nil {
+			return fmt.Errorf("failed to save accounts to file: %w", err)
+		}
+		log.Printf("Accounts saved to final file: %s\n", mergedFile)
 	}
 
 	log.Printf("\nTask completed successfully!\n")
-	log.Printf("Accounts fetched and saved to %s.\n", filePath)
-	log.Printf("Total accounts: %d\n", len(accounts))
 	log.Printf("Total contracts: %d\n", numContracts)
 	log.Printf("Total non-contracts: %d\n", numNonContracts)
 	log.Printf("Last scan key: %s\n", scanKey)
