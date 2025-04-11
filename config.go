@@ -47,6 +47,11 @@ type AccountScanConfig struct {
 	BatchSize      uint64 `toml:"batch_size"`       // Batch size for requests
 }
 
+type ContractCodeScanConfig struct {
+	OutputFileName string `toml:"output_file_name"` // File name for saving the scanned contract codes
+	BatchSize      uint64 `toml:"batch_size"`       // Batch size for requests
+}
+
 type ReceiptScanConfig struct {
 	// TODO: For now, this only accepts the exported BlockScan data,
 	// but it should be able to accept any array of transaction hashes
@@ -58,10 +63,11 @@ type ReceiptScanConfig struct {
 }
 
 type ScanConfig struct {
-	BlockScanConfig   `toml:"block_scan"`   // Configuration for block scanning
-	AccountScanConfig `toml:"account_scan"` // Configuration for account scanning
-	ReceiptScanConfig `toml:"receipt_scan"` // Configuration for receipt scanning
-	OutputDir         string                `toml:"output_dir"` // Directory to save the output files
+	BlockScanConfig        `toml:"block_scan"`         // Configuration for block scanning
+	AccountScanConfig      `toml:"account_scan"`       // Configuration for account scanning
+	ReceiptScanConfig      `toml:"receipt_scan"`       // Configuration for receipt scanning
+	ContractCodeScanConfig `toml:"contract_code_scan"` // Configuration for contract code scanning
+	OutputDir              string                      `toml:"output_dir"` // Directory to save the output files
 }
 
 type FilterConfig struct {
@@ -94,6 +100,9 @@ func CreateSampleConfig() error {
 	sampleConfig.Scan.ReceiptScanConfig.FullBlocksFile = "full_blocks.json"
 	sampleConfig.Scan.ReceiptScanConfig.OutputFileName = "receipts.json"
 	sampleConfig.Scan.ReceiptScanConfig.BatchSize = DefaultBatchSize
+
+	sampleConfig.Scan.ContractCodeScanConfig.OutputFileName = "contract_codes.json"
+	sampleConfig.Scan.ContractCodeScanConfig.BatchSize = 1
 
 	sampleConfig.Scan.OutputDir = DefaultOutputDir
 

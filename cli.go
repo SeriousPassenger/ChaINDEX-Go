@@ -134,6 +134,37 @@ func GetCobraRootCmd() *cobra.Command {
 		},
 	}
 
+	var accountsFile string
+	scanContractCodeCmd := &cobra.Command{
+		Use:   "scan-contract-code",
+		Short: "Scan contract code",
+		Run: func(cmd *cobra.Command, args []string) {
+			if configFile == "" {
+				cmd.Println("Error: config file path is required (use --config).")
+				return
+			}
+
+			if accountsFile == "" {
+				cmd.Println("Error: accounts file path is required (use --accounts-file).")
+				return
+			}
+
+			config, err := GetConfig(configFile)
+
+			if err != nil {
+				cmd.Println("Error loading config:", err)
+				return
+			}
+
+			if err := ScanContractCode(config, accountsFile); err != nil {
+				cmd.Println("Error scanning contract code:", err)
+				return
+			}
+
+			cmd.Println("Contract code scanned successfully.")
+		},
+	}
+
 	// ----------------------------------------
 	// Flags for all commands
 	// ----------------------------------------
@@ -142,6 +173,8 @@ func GetCobraRootCmd() *cobra.Command {
 	scanReceiptsCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
 	scanReceiptsCmd.Flags().StringVarP(&blockFile, "block-file", "b", "", "Path to the block file")
 	scanAccountsCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
+	scanContractCodeCmd.Flags().StringVarP(&configFile, "config", "c", "", "Path to the config file")
+	scanContractCodeCmd.Flags().StringVarP(&accountsFile, "accounts-file", "a", "", "Path to the accounts file")
 
 	// ----------------------------------------
 	// Add commands to root command
@@ -151,6 +184,7 @@ func GetCobraRootCmd() *cobra.Command {
 	rootCmd.AddCommand(scanBlocksCmd)
 	rootCmd.AddCommand(scanReceiptsCmd)
 	rootCmd.AddCommand(scanAccountsCmd)
+	rootCmd.AddCommand(scanContractCodeCmd)
 
 	return rootCmd
 }

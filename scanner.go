@@ -535,3 +535,92 @@ func ScanAllAccounts(config *Config) error {
 	log.Printf("Last scan key: %s\n", scanKey)
 	return nil
 }
+
+type AccountWithBalanceAndCode struct {
+	Address string  `json:"address"`
+	Balance float64 `json:"balance (ether)"`
+	Code    string  `json:"code"`
+}
+
+func ScanContractCode(config *Config, accountsFile string) error {
+	var accounts []AccountWithBalanceAndCode
+
+	err := JSONToStruct(accountsFile, &accounts)
+
+	if err != nil {
+		return fmt.Errorf("failed to load accounts from file: %w", err)
+	}
+
+	log.Printf("Loaded %d accounts from file: %s\n", len(accounts), accountsFile)
+
+	client, err := GetRpcClient(config.Rpc.Url)
+
+	if err != nil {
+		return fmt.Errorf("failed to create RPC client: %w", err)
+	}
+
+	batchSize := config.Scan.ContractCodeScanConfig.BatchSize
+	batchCount := len(accounts) / int(batchSize)
+
+	if len(accounts)%int(batchSize) != 0 {
+		batchCount++
+	}
+
+	log.Printf("Batch size: %d\n", batchSize)
+	log.Printf("Total accounts to scan: %d\n", len(accounts))
+	log.Printf("Total batches: %d\n", batchCount)
+	log.Printf("Delay between requests: %d ms\n", config.Rpc.Delay)
+
+	bar := progressbar.NewOptions64(int64(batchCount),
+		progressbar.OptionSetDescription("Fetching contract code..."),
+		progressbar.OptionSetWriter(log.Writer()),
+		progressbar.OptionSetWidth(20),
+	)
+
+	for i := 0; i < batchCount; i++ {
+		batchStart := i * int(batchSize)
+		batchEnd := batchStart + int(batchSize)
+
+		if batchEnd > len(accounts) {
+			batchEnd = len(accounts)
+		}
+
+		currentBatch := accounts[batchStart:batchEnd]
+
+		bar.Describe(fmt.Sprintf("Fetching contract code for accounts %d to %d", batchStart, batchEnd))
+
+		addresses := make([]string, len(currentBatch))
+		for j, account := range currentBatch {
+			addresses[j] = account.Address
+		}
+
+		batchCodes, err := GetContractCodeBatch(client, addresses)
+		// Add a delay between requests
+		time.Sleep(time.Duration(config.Rpc.Delay) * time.Millisecond)
+
+		if err != nil {
+			bar.Add(1)
+			return fmt.Errorf("failed to fetch contract code: %w", err)
+		}
+
+		for j, code := range batchCodes {
+			// Update the original account with the fetched code.
+			if code.Code != "" {
+				accounts[batchStart+j].Code = code.Code
+			} else {
+				accounts[batchStart+j].Code = "0x"
+			}
+		}
+
+		bar.Add(1)
+	}
+
+	// Save accounts with contract code to file
+	filePath := fmt.Sprintf("%s/%s", config.Scan.OutputDir, config.Scan.ContractCodeScanConfig.OutputFileName)
+
+	if err := SaveStructToJSONFile(accounts, filePath); err != nil {
+		return fmt.Errorf("failed to save contract codes to file: %w", err)
+	}
+
+	return nil
+}
