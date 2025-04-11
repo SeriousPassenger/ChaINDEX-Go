@@ -415,6 +415,7 @@ func ScanAllAccounts(config *Config) error {
 			if seenAccounts[address] {
 				log.Printf("Completely scanned all accounts !\n")
 				completedScan = true
+				break
 			}
 
 			seenAccounts[address] = true
@@ -422,6 +423,7 @@ func ScanAllAccounts(config *Config) error {
 			if uint64(len(seenAccounts)) >= maxAccounts {
 				log.Printf("Reached the maximum number of accounts to scan: %d !\n", maxAccounts)
 				completedScan = true
+				break
 			}
 
 			if account.CodeHash == nonContractCodeHash {
